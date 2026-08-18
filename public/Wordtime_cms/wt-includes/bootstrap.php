@@ -371,11 +371,46 @@ function wt_handle_upload($field) {
     if (!is_dir($dir)) @mkdir($dir, 0755, true);
     $name = substr(md5(uniqid('', true)), 0, 10) . '.' . $ext;
     if (!move_uploaded_file($f['tmp_name'], $dir . '/' . $name)) return array(false, 'Не удалось сохранить файл.');
-    return array(true, array('url' => wt_asset('wt-content/uploads/' . $sub . '/' . $name), 'name' => $f['name'], 'size' => $f['size']));
+
+    /* ── Оптимизация изображений (GD): ресайз до лимита + пережатие ── */
+    $optimized = false;
+    $maxW = (int)wt_option('img_max_width', 1920);
+    $quality = (int)wt_option('img_quality', 82);
+    if (wt_option('img_auto', true) && $maxW > 0 && function_exists('imagecreatefromstring')
+        && in_array($ext, array('jpg', 'jpeg', 'png', 'webp'), true)) {
+        $path = $dir . '/' . $name;
+        $img = @imagecreatefromstring((string)file_get_contents($path));
+        if ($img) {
+            $w = imagesx($img); $h = imagesy($img);
+            if ($w > $maxW) {
+                $nh = (int)round($h * $maxW / $w);
+                $res = imagecreatetruecolor($maxW, $nh);
+                imagecopyresampled($res, $img, 0, 0, 0, 0, $maxW, $nh, $w, $h);
+                if ($ext === 'png') imagepng($res, $path, 6);
+                elseif ($ext === 'webp' && function_exists('imagewebp')) imagewebp($res, $path, $quality);
+                else imagejpeg($res, $path, $quality);
+                imagedestroy($res);
+                $optimized = true;
+                wt_log('Изображение оптимизировано: ' . $w . 'px → ' . $maxW . 'px (' . $name . ')');
+            }
+            imagedestroy($img);
+        }
+    }
+    return array(true, array('url' => wt_asset('wt-content/uploads/' . $sub . '/' . $name), 'name' => $f['name'], 'size' => filesize($dir . '/' . $name), 'optimized' => $optimized));
 }
 
 /* ── SEO: title / description в <head> ────────────────────────────── */
 function wt_head($title, $desc, $canonical = '') {
+    /* шаблоны из настроек SEO: {title} / {site} / {excerpt} */
+    $tpl = (string)wt_option('title_template', '');
+    if ($tpl !== '' && strpos($tpl, '{title}') !== false) {
+        $title = strtr($tpl, array('{title}' => $title, '{site}' => wt_option('site_title', 'Wordtime')));
+    }
+    $dtpl = (string)wt_option('desc_template', '');
+    if ($dtpl !== '' && strpos($dtpl, '{excerpt}') !== false) {
+        $desc = strtr($dtpl, array('{excerpt}' => $desc, '{site}' => wt_option('site_title', 'Wordtime')));
+    }
+    if (trim($desc) === '') $desc = (string)wt_option('desc_fallback', 'Сайт работает на Wordtime CMS');
     $title = esc(wt_apply_filters('wt_title', $title));
     $desc = esc(wt_apply_filters('wt_description', $desc));
     $canonical = $canonical !== '' ? esc_url($canonical) : '';
@@ -390,19 +425,23 @@ function wt_head($title, $desc, $canonical = '') {
 }
 
 /* ── Sitemap и robots ─────────────────────────────────────────────── */
-function wt_sitemap() {
-    header('Content-Type: application/xml; charset=utf-8');
+function wt_sitemap_xml() {
     $base = (isset($_SERVER['REQUEST_SCHEME']) ? $_SERVER['REQUEST_SCHEME'] : 'https') . '://' . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost') . wt_base();
-    echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-    echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-    echo "  <url><loc>" . esc($base . '/') . "</loc><priority>1.0</priority><changefreq>daily</changefreq></url>\n";
+    $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+    $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+    $xml .= "  <url><loc>" . esc($base . '/') . "</loc><priority>1.0</priority><changefreq>daily</changefreq></url>\n";
     foreach (wt_posts(array('limit' => 500)) as $p) {
-        echo "  <url><loc>" . esc($base . '/?p=post:' . $p['slug']) . "</loc><lastmod>" . date('Y-m-d', strtotime($p['post_date'])) . "</lastmod><priority>0.8</priority></url>\n";
+        $xml .= "  <url><loc>" . esc($base . '/?p=post:' . $p['slug']) . "</loc><lastmod>" . date('Y-m-d', strtotime($p['post_date'])) . "</lastmod><priority>0.8</priority></url>\n";
     }
     foreach (wt_pages_list() as $pg) {
-        echo "  <url><loc>" . esc($base . '/?p=page:' . $pg['slug']) . "</loc><priority>0.6</priority></url>\n";
+        $xml .= "  <url><loc>" . esc($base . '/?p=page:' . $pg['slug']) . "</loc><priority>0.6</priority></url>\n";
     }
-    echo "</urlset>\n";
+    $xml .= "</urlset>\n";
+    return $xml;
+}
+function wt_sitemap() {
+    header('Content-Type: application/xml; charset=utf-8');
+    echo wt_sitemap_xml();
 }
 function wt_robots() {
     header('Content-Type: text/plain; charset=utf-8');
