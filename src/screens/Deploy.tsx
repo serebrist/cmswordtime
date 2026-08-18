@@ -105,9 +105,12 @@ export default function Deploy() {
           <h1 className="font-display font-extrabold text-[24px] text-ink-900 tracking-tight">Установка на хостинг</h1>
           <p className="text-[13.5px] text-mut mt-1.5 max-w-xl">Wordtime ставится на любой хостинг с PHP — от копеечного виртуального до выделенного сервера. Автоустановщик, файлы для ручной установки и пошаговые руководства.</p>
         </div>
-        <Btn kind="amber" size="lg" onClick={() => { downloadBlob(buildDeployZip(), "Wordtime_cms.zip"); toast("ok", "Архив скачан", `Wordtime_cms.zip · ${fmtBytes(zipSize)} · распакуйте в корень сайта`); }}>
-          <I n="download" size={16} />Скачать Wordtime_cms.zip
-        </Btn>
+        <div className="text-right">
+          <Btn kind="amber" size="lg" onClick={() => { downloadBlob(buildDeployZip(), "Wordtime_cms.zip"); toast("ok", "Архив скачан", `Wordtime_cms.zip · ${fmtBytes(zipSize)} · распакуйте в корень сайта`); }}>
+            <I n="download" size={16} />Скачать Wordtime_cms.zip
+          </Btn>
+          <p className="text-[11.5px] text-mut mt-2 tabular">собирается в браузере · {fmtBytes(zipSize)} · ядро всегда актуальной версии</p>
+        </div>
       </div>
 
       {/* ── требования ── */}

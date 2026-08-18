@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { I, IconName, WTMark } from "../components/icons";
 import { fmtKB, plural } from "../lib/data";
 import { useStore } from "../lib/store";
+import { buildDeployZip } from "../lib/deploy";
+import { downloadBlob } from "../lib/zip";
 
 /* ── структура меню (как в WordPress, по-русски) ─────────────────── */
 
@@ -198,6 +200,7 @@ export default function Shell({ children, route, onNav }: { children: React.Reac
                 { l: "Страницу", i: "pages" as IconName, fn: () => onNav("page-new") },
                 { l: "Пользователя", i: "users" as IconName, fn: () => onNav("user-new") },
                 { l: "Резервную копию", i: "cloud" as IconName, fn: () => onNav("settings:backups") },
+                { l: "Установочный пакет (.zip)", i: "package" as IconName, fn: () => { downloadBlob(buildDeployZip(), "Wordtime_cms.zip"); toast("ok", "Архив скачан", "Wordtime_cms.zip — распакуйте в корень сайта на хостинге."); } },
               ].map(it => (
                 <button key={it.l} onClick={() => { it.fn(); setCreateMenu(false); }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-[13.5px] font-semibold hover:bg-teal-soft/60 transition-colors cursor-pointer">
