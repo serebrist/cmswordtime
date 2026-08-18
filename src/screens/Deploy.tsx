@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { I, IconName } from "../components/icons";
 import { Badge, Btn, inputCls } from "../components/ui";
-import { buildDeployZip, buildScript, DEPLOY_FILES, DEPLOY_METHODS, FILE_SOURCES, GUIDES } from "../lib/deploy";
+import { buildDeployZip, buildScript, loadCoreFiles, DEPLOY_METHODS, GUIDES } from "../lib/deploy";
 import { useStore } from "../lib/store";
-import { downloadBlob, downloadText, fmtBytes } from "../lib/zip";
+import { downloadBlob, downloadText, fmtBytes, type ZipEntry } from "../lib/zip";
 
 type Line = { text: string; kind: "cmd" | "ok" | "info" | "warn" | "done" };
 type Target = { id: string; host: string; method: string; url: string; date: string };
@@ -28,6 +28,13 @@ const REQ = [
 
 export default function Deploy() {
   const { toast } = useStore();
+  const [files, setFiles] = useState<ZipEntry[] | null>(null);
+  const [filesErr, setFilesErr] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    loadCoreFiles().then(f => { if (alive) setFiles(f); }).catch(() => { if (alive) setFilesErr(true); });
+    return () => { alive = false; };
+  }, []);
   const [methodId, setMethodId] = useState<string | null>(null);
   const [cfg, setCfg] = useState<Record<string, string>>({});
   const [phase, setPhase] = useState<"idle" | "running" | "done">("idle");
@@ -96,7 +103,7 @@ export default function Deploy() {
     toast("ok", "Скопировано", what);
   };
 
-  const zipSize = DEPLOY_FILES.reduce((s, f) => s + new TextEncoder().encode(f.content).length, 0);
+  const zipSize = (files ?? []).reduce((s, f) => s + new TextEncoder().encode(f.content).length, 0);
 
   return (
     <div className="anim-fade-up">
@@ -107,7 +114,7 @@ export default function Deploy() {
         </div>
         <div className="text-right">
 <div className="flex flex-col items-end gap-2">
-          <Btn kind="amber" size="lg" onClick={() => { downloadBlob(buildDeployZip(), "Wordtime_cms.zip"); toast("ok", "Архив скачан", `Wordtime_cms.zip · ${fmtBytes(zipSize)} · распакуйте в корень сайта`); }}>
+          <Btn kind="amber" size="lg" onClick={() => { void buildDeployZip().then(b => { downloadBlob(b, "Wordtime_cms.zip"); toast("ok", "Архив скачан", `Wordtime_cms.zip · ${fmtBytes(zipSize)} · распакуйте в корень сайта`); }).catch(() => toast("danger", "Не удалось собрать архив")); }}>
             <I n="download" size={16} />Скачать Wordtime_cms.zip
           </Btn>
           <a href="#/download" target="_blank" rel="noreferrer"
@@ -322,7 +329,9 @@ export default function Deploy() {
             </header>
             <div className="px-5 py-4">
               <div className="rounded-lg border border-line overflow-hidden">
-                {DEPLOY_FILES.map((f, i) => {
+                {files === null && !filesErr && <div className="px-4 py-8 text-center text-[12.5px] text-mut">Читаем файлы пакета…</div>}
+                {filesErr && <div className="px-4 py-8 text-center text-[12.5px] text-danger">Не удалось прочитать файлы пакета с сервера.</div>}
+                {(files ?? []).map((f, i) => {
                   const name = f.path.replace("Wordtime_cms/", "");
                   const size = new TextEncoder().encode(f.content).length;
                   const isOpen = openFile === name;
@@ -344,7 +353,7 @@ export default function Deploy() {
                   );
                 })}
               </div>
-              <Btn className="w-full mt-4" kind="dark" onClick={() => { downloadBlob(buildDeployZip(), "Wordtime_cms.zip"); toast("ok", "Архив скачан", "Распакуйте в корень сайта и откройте домен"); }}>
+              <Btn className="w-full mt-4" kind="dark" onClick={() => { void buildDeployZip().then(b => { downloadBlob(b, "Wordtime_cms.zip"); toast("ok", "Архив скачан", "Распакуйте в корень сайта и откройте домен"); }).catch(() => toast("danger", "Не удалось собрать архив")); }}>
                 <I n="package" size={15} />Скачать весь архив .zip
               </Btn>
               <p className="text-[11.5px] text-mut mt-3 leading-relaxed flex gap-2"><I n="key" size={13} className="shrink-0 mt-0.5" />Внутри — настоящий PHP-код: точка входа, веб-установщик, конфиг, .htaccess, Docker и cron для асинхронных задач.</p>

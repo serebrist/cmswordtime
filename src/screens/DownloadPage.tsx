@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { I, WTMark } from "../components/icons";
-import { downloadBlob, downloadText, fmtBytes } from "../lib/zip";
-import { buildDeployZip, DEPLOY_FILES, FILE_NOTES } from "../lib/deploy";
+import { downloadBlob, downloadText, fmtBytes, type ZipEntry } from "../lib/zip";
+import { buildDeployZip, loadCoreFiles, FILE_NOTES } from "../lib/deploy";
 
 const crcOf = (s: string) => {
   const d = new TextEncoder().encode(s);
@@ -21,35 +21,49 @@ export default function DownloadPage({ onBack }: { onBack: () => void }) {
   const [copied, setCopied] = useState(false);
   const firedRef = useRef(false);
 
-  const totalSize = DEPLOY_FILES.reduce((s, f) => s + new TextEncoder().encode(f.content).length, 0);
+  const [files, setFiles] = useState<ZipEntry[] | null>(null);
+  const [filesErr, setFilesErr] = useState(false);
 
-  /* живая «упаковка» файлов */
+  /* читаем реальные файлы пакета с сервера */
   useEffect(() => {
+    let alive = true;
+    loadCoreFiles().then(f => { if (alive) setFiles(f); }).catch(() => { if (alive) setFilesErr(true); });
+    return () => { alive = false; };
+  }, []);
+
+  const total = files?.length ?? 0;
+  const totalSize = (files ?? []).reduce((s, f) => s + new TextEncoder().encode(f.content).length, 0);
+
+  /* живая «упаковка» файлов (идёт, пока файлы читаются) */
+  useEffect(() => {
+    if (total === 0) return;
     const t = window.setInterval(() => {
       setPacked(p => {
-        if (p >= DEPLOY_FILES.length) { window.clearInterval(t); return p; }
+        if (p >= total) { window.clearInterval(t); return p; }
         return p + 1;
       });
     }, 260);
     return () => window.clearInterval(t);
-  }, []);
+  }, [total]);
 
   const doDownload = () => {
     if (firedRef.current) return;
     firedRef.current = true;
     setStarted(true);
-    downloadBlob(buildDeployZip(), "Wordtime_cms.zip");
-    window.setTimeout(() => setDone(true), 400);
+    void buildDeployZip().then(b => {
+      downloadBlob(b, "Wordtime_cms.zip");
+      window.setTimeout(() => setDone(true), 400);
+    }).catch(() => { setStarted(false); setDone(false); firedRef.current = false; setFilesErr(true); });
   };
 
   /* автозапуск скачивания после упаковки */
   useEffect(() => {
-    if (packed < DEPLOY_FILES.length || started) return;
+    if (total === 0 || packed < total || started) return;
     if (countdown <= 0) { doDownload(); return; }
     const t = window.setTimeout(() => setCountdown(c => c - 1), 800);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [packed, countdown, started]);
+  }, [packed, countdown, started, total]);
 
   const shareLink = `${location.origin}${location.pathname}#/download`;
   const copyLink = async () => {
@@ -91,7 +105,7 @@ export default function DownloadPage({ onBack }: { onBack: () => void }) {
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2.5">
-            {[`${fmtBytes(totalSize)} · ${DEPLOY_FILES.length} файлов`, "PHP 7.4 – 8.3", "nginx / Apache", "MariaDB / MySQL", "REST API", "2FA в ядре"].map(t => (
+            {[`${fmtBytes(totalSize)} · ${total} файлов`, "PHP 7.4 – 8.3", "nginx / Apache", "MariaDB / MySQL", "REST API", "2FA в ядре"].map(t => (
               <span key={t} className="px-3 py-1.5 rounded-lg bg-deep-line/40 border border-deep-line text-[12px] font-bold text-paper/80">{t}</span>
             ))}
           </div>
@@ -107,7 +121,7 @@ export default function DownloadPage({ onBack }: { onBack: () => void }) {
                 {!started ? (
                   <>
                     <p className="font-display font-bold text-[17px]">
-                      {packed < DEPLOY_FILES.length ? `Упаковываем файлы… ${packed}/${DEPLOY_FILES.length}` : `Скачивание начнётся через ${countdown}…`}
+                      {total === 0 ? "Читаем файлы пакета…" : packed < total ? `Упаковываем файлы… ${packed}/${total}` : `Скачивание начнётся через ${countdown}…`}
                     </p>
                     <p className="text-[13px] text-paper/60 mt-1">или нажмите кнопку, чтобы скачать прямо сейчас</p>
                   </>
@@ -139,6 +153,12 @@ export default function DownloadPage({ onBack }: { onBack: () => void }) {
             </button>
           </div>
           <p className="text-[12px] text-paper/45 mt-2.5">Эта ссылка работает на любом хостинге — она часть самой CMS и не требует отдельного файла на сервере.</p>
+          {filesErr && (
+            <div className="mt-4 px-4 py-3.5 rounded-xl border border-danger/40 bg-danger/10 text-[13px] text-paper flex items-start gap-3">
+              <I n="x" size={16} className="text-danger shrink-0 mt-0.5" />
+              <span>Не удалось прочитать файлы пакета с сервера. Обновите страницу — если не поможет, скачайте архив из консоли: «Инструменты → Установка на хостинг».</span>
+            </div>
+          )}
 
           {/* шаги установки */}
           <div className="mt-9 grid sm:grid-cols-3 gap-3.5">
@@ -164,15 +184,15 @@ export default function DownloadPage({ onBack }: { onBack: () => void }) {
               <span className="w-2.5 h-2.5 rounded-full bg-amber-brand/70" />
               <span className="w-2.5 h-2.5 rounded-full bg-ok/70" />
               <span className="ml-2 text-[12px] font-bold text-paper/50 font-mono">wt-pack — сборка архива</span>
-              <span className="ml-auto text-[11px] font-bold text-teal-brand tabular">{Math.min(packed, DEPLOY_FILES.length)}/{DEPLOY_FILES.length}</span>
+              <span className="ml-auto text-[11px] font-bold text-teal-brand tabular">{Math.min(packed, total)}/{total}</span>
             </div>
             <div className="p-4 font-mono text-[12px] leading-[1.9] h-52 overflow-hidden">
               <p className="text-paper/50">$ wordtime pack --target Wordtime_cms.zip</p>
-              {DEPLOY_FILES.slice(0, packed).map(f => (
+              {(files ?? []).slice(0, packed).map((f: ZipEntry) => (
                 <p key={f.path} className="anim-fade"><span className="text-ok">✓</span> <span className="text-paper/85">{f.path.replace("Wordtime_cms/", "")}</span> <span className="text-paper/40">· {fmtBytes(new TextEncoder().encode(f.content).length)} · crc {crcOf(f.content).slice(0, 8)}</span></p>
               ))}
-              {packed >= DEPLOY_FILES.length && <p className="text-amber-brand anim-fade font-bold">Архив готов — {DEPLOY_FILES.length} файлов, контрольные суммы верны</p>}
-              {packed < DEPLOY_FILES.length && <span className="inline-block w-2 h-4 bg-teal-brand align-middle" style={{ animation: "wt-blink 1s steps(2) infinite" }} />}
+              {total > 0 && packed >= total && <p className="text-amber-brand anim-fade font-bold">Архив готов — {total} файлов, контрольные суммы верны</p>}
+              {total > 0 && packed < total && <span className="inline-block w-2 h-4 bg-teal-brand align-middle" style={{ animation: "wt-blink 1s steps(2) infinite" }} />}
             </div>
           </div>
 
@@ -183,7 +203,7 @@ export default function DownloadPage({ onBack }: { onBack: () => void }) {
               <span className="ml-auto text-[11.5px] font-bold text-paper/45 tabular">{fmtBytes(totalSize)}</span>
             </div>
             <ul>
-              {DEPLOY_FILES.map(f => {
+              {(files ?? []).map((f: ZipEntry) => {
                 const rel = f.path.replace("Wordtime_cms/", "");
                 return (
                   <li key={f.path} className="flex items-center gap-3 px-5 py-2.5 border-b border-deep-line/50 last:border-0 hover:bg-deep-line/25 transition-colors group" title={rel}>
