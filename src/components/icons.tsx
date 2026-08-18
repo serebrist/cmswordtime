@@ -118,6 +118,12 @@ const P: Record<string, React.ReactNode> = {
   monitor: <><rect x="3.5" y="4.5" width="17" height="12" rx="2" /><path d="M9 20h6M12 16.5V20" strokeLinecap="round" /></>,
   layout: <><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 9h17M9.5 9v10.5" /></>,
   sparkle: <><path d="M12 4c.6 3.8 2.2 5.4 6 6-3.8.6-5.4 2.2-6 6-.6-3.8-2.2-5.4-6-6 3.8-.6 5.4-2.2 6-6z" strokeLinejoin="round" /><path d="M19 15.5c.3 1.8 1 2.6 2.5 3-1.5.4-2.2 1.2-2.5 3-.3-1.8-1-2.6-2.5-3 1.5-.4 2.2-1.2 2.5-3z" strokeLinejoin="round" opacity="0.6" /></>,
+  hourglass: <><path d="M6.5 3.5h11M6.5 20.5h11" strokeLinecap="round" /><path d="M7.5 3.5v2.6c0 2.7 4.5 3.7 4.5 5.9s-4.5 3.2-4.5 5.9v2.6M16.5 3.5v2.6c0 2.7-4.5 3.7-4.5 5.9s4.5 3.2 4.5 5.9v2.6" strokeLinecap="round" strokeLinejoin="round" /><path d="M10 17.5c.5-1 1.3-1.5 2-1.5s1.5.5 2 1.5" strokeLinecap="round" opacity="0.7" /></>,
+  phone: <><rect x="7" y="3.5" width="10" height="17" rx="2.5" /><path d="M10.5 17.8h3" strokeLinecap="round" /><path d="M9.5 6.5h5" strokeLinecap="round" opacity="0.6" /></>,
+  rocket: <><path d="M12 3.5c3.5 1.6 5.5 5 5.5 9l2 3.2-3.6-.6c-1 2-2.4 3.4-3.9 4.1-1.5-.7-2.9-2.1-3.9-4.1l-3.6.6 2-3.2c0-4 2-7.4 5.5-9z" strokeLinejoin="round" /><circle cx="12" cy="9.8" r="1.6" /><path d="M9.3 18.7c-.5 1-1.4 1.7-2.6 1.9.1-1.3.4-2.4 1-3.3M14.7 18.7c.5 1 1.4 1.7 2.6 1.9-.1-1.3-.4-2.4-1-3.3" strokeLinecap="round" /></>,
+  code: <path d="m8.5 8-4 4 4 4M15.5 8l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />,
+  file: <><path d="M13.5 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8.5z" strokeLinejoin="round" /><path d="M13.5 3.5v5h5" strokeLinejoin="round" /><path d="M9 13h6M9 16.5h4" strokeLinecap="round" opacity="0.6" /></>,
+  pulse: <path d="M3.5 12h4l2.5-6 4 12 2.5-6h4" strokeLinecap="round" strokeLinejoin="round" />,
 };
 
 export type IconName = keyof typeof P;

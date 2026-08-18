@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { ToastHost } from "./components/ui";
 import { StoreProvider, useStore } from "./lib/store";
 import Login from "./screens/Login";
@@ -10,6 +10,8 @@ import { PluginsScreen, ThemesScreen } from "./screens/Extend";
 import Settings from "./screens/Settings";
 import SitePreview from "./screens/Site";
 import HealthScreen from "./screens/Health";
+import Installer from "./screens/Installer";
+import Perf from "./screens/Perf";
 
 function Screen() {
   const { route, nav, siteOpen } = useStore();
@@ -32,6 +34,12 @@ function Screen() {
     case route === "user-new": screen = <UsersScreen autoAdd />; break;
     case route === "updates": screen = <UpdatesScreen />; break;
     case route === "health": screen = <HealthScreen />; break;
+    case route.startsWith("perf"): {
+      const tab = route.split(":")[1] ?? "speed";
+      const valid = ["speed", "images", "sitemap", "seo", "api"].includes(tab) ? tab : "speed";
+      screen = <Perf key={valid} tab={valid} onTab={t => nav(`perf:${t}`)} />;
+      break;
+    }
     case route.startsWith("settings"): {
       const tab = route.split(":")[1] ?? "general";
       const valid = ["general", "discussion", "cache", "security", "backups", "login"].includes(tab) ? tab : "general";
@@ -51,6 +59,15 @@ function Screen() {
 
 function Root() {
   const { authed } = useStore();
+  const [installed, setInstalled] = useState(() => localStorage.getItem("wordtime_installed_v1") === "1");
+  if (!installed) {
+    return (
+      <>
+        <Installer onDone={() => { localStorage.setItem("wordtime_installed_v1", "1"); setInstalled(true); }} />
+        <ToastHost />
+      </>
+    );
+  }
   return (
     <>
       {authed ? <Screen /> : <Login />}

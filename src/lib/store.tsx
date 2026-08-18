@@ -39,6 +39,46 @@ export const useStore = () => useContext(Ctx);
 
 const LS_KEY = "wordtime_cms_state_v1";
 
+/* ── защита: санитизация, детектор инъекций, журнал безопасности ── */
+
+export function sanitizeInput(v: string): string {
+  return v
+    .replace(/<\s*\/?\s*(script|iframe|object|embed|style|svg|link|meta)[^>]*>/gi, "")
+    .replace(/javascript\s*:/gi, "")
+    .replace(/on(error|load|click|mouse\w+)\s*=/gi, "")
+    .replace(/('|"|;|--)\s*(union|select|insert|update|delete|drop|truncate)\s+/gi, "$1 ")
+    .replace(/<\s*(img|body)\b[^>]*>/gi, "");
+}
+
+export function detectInjection(v: string): boolean {
+  return /<\s*script|javascript\s*:|onerror\s*=|<\s*iframe|union\s+select|drop\s+table|;\s*delete\s+from|sleep\s*\(\s*\d/i.test(v);
+}
+
+export interface SecEntry { t: string; time: string; }
+const SEC_KEY = "wordtime_seclog_v1";
+
+export function secLogPush(t: string) {
+  try {
+    const list = secLogRead();
+    list.unshift({ t, time: new Date().toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) });
+    localStorage.setItem(SEC_KEY, JSON.stringify(list.slice(0, 40)));
+  } catch { /* quota */ }
+}
+
+export function secLogRead(): SecEntry[] {
+  try {
+    const raw = localStorage.getItem(SEC_KEY);
+    if (raw) return JSON.parse(raw) as SecEntry[];
+  } catch { /* повреждено */ }
+  const seed: SecEntry[] = [
+    { t: "Ядро 1.0.4: проверка целостности файлов — изменений нет", time: "12.02, 06:12" },
+    { t: "Экранирование SQL-запросов активно (подготовленные выражения)", time: "12.02, 06:12" },
+    { t: "Отражена тестовая XSS-попытка в поле поиска", time: "11.02, 22:47" },
+  ];
+  try { localStorage.setItem(SEC_KEY, JSON.stringify(seed)); } catch { /* quota */ }
+  return seed;
+}
+
 function loadState(): AppState {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -103,7 +143,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState(s => s.settings.cacheEnabled ? { ...s, cache: { ...s.cache, sizeKB: s.cache.sizeKB + Math.round(20 + Math.random() * 90) } } : s);
   };
 
-  /* ── аутентификация + 2FA ── */
+  /* ── аутентификация + 2FA + защита ── */
   const genCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
   const sendEmail = (to: string, code: string) => {
@@ -111,25 +151,69 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setEmail(msg); // «письмо» приходит с небольшой задержкой
   };
 
-  const startLogin: Store["startLogin"] = (mail, password) => {
+  /* защита от подбора пароля: 5 неудач → блокировка 60 сек (переживает перезагрузку) */
+  const LOCK_KEY = "wordtime_bruteforce_v1";
+  const readLock = (): { count: number; until: number } => {
+    try { const r = JSON.parse(localStorage.getItem(LOCK_KEY) ?? ""); return { count: r.count ?? 0, until: r.until ?? 0 }; } catch { return { count: 0, until: 0 }; }
+  };
+  const writeLock = (l: { count: number; until: number }) => localStorage.setItem(LOCK_KEY, JSON.stringify(l));
+
+  const startLogin: Store["startLogin"] = (rawMail, rawPassword) => {
+    const lock = readLock();
+    const now = Date.now();
+    if (lock.until > now) {
+      secLogPush(`Вход отклонён: действует блокировка подбора (${Math.ceil((lock.until - now) / 1000)} с)`);
+      return `Сработала защита от подбора паролей. Повторите через ${Math.ceil((lock.until - now) / 1000)} сек.`;
+    }
+    /* анти-инъекция: чистим ввод до любых проверок */
+    const mail = sanitizeInput(rawMail);
+    const password = sanitizeInput(rawPassword);
+    if (detectInjection(rawMail) || detectInjection(rawPassword)) {
+      writeLock({ count: 0, until: now + 60_000 });
+      secLogPush(`Заблокирована попытка инъекции в форме входа (${rawMail.slice(0, 24)}…)`);
+      toast("danger", "Заблокировано", "Похоже на попытку инъекции. Вход закрыт на 60 секунд.");
+      return "Ввод содержит запрещённые конструкции. Вход заблокирован на 60 секунд.";
+    }
     const user = state.users.find(u => u.email.toLowerCase() === mail.trim().toLowerCase());
-    if (!user) return "Пользователь с такой почтой не найден.";
-    if (user.password && user.password !== password) return "Неверный пароль. Попробуйте ещё раз.";
-    if (!user.password && password.length < 4) return "Неверный пароль. Попробуйте ещё раз.";
+    const wrong = !user
+      ? "Пользователь с такой почтой не найден."
+      : (user.password && user.password !== password) || (!user.password && password.length < 4)
+        ? "Неверный пароль. Попробуйте ещё раз."
+        : null;
+    if (wrong) {
+      const count = lock.count + 1;
+      if (count >= 5) {
+        writeLock({ count: 0, until: now + 60_000 });
+        secLogPush(`Подбор пароля: 5 неудачных попыток для «${mail || "—"}» — блокировка 60 с`);
+        toast("danger", "Слишком много попыток", "Защита от подбора: вход заблокирован на 60 секунд.");
+        return "5 неудачных попыток. Вход заблокирован на 60 секунд.";
+      }
+      writeLock({ count, until: 0 });
+      secLogPush(`Неудачная попытка входа (${count} из 5) для «${mail || "—"}»`);
+      return wrong + ` Осталось попыток: ${5 - count}.`;
+    }
+    writeLock({ count: 0, until: 0 });
+    secLogPush(`Пароль принят для «${user!.email}» — отправлен код 2FA`);
     const code = genCode();
-    setPending({ purpose: "login", email: user.email, name: user.name, code, attempts: 0 });
-    window.setTimeout(() => sendEmail(user.email, code), 700);
+    setPending({ purpose: "login", email: user!.email, name: user!.name, code, attempts: 0 });
+    window.setTimeout(() => sendEmail(user!.email, code), 700);
     return null;
   };
 
-  const startRegister: Store["startRegister"] = (name, mail, password) => {
-    const m = mail.trim().toLowerCase();
+  const startRegister: Store["startRegister"] = (rawName, rawMail, rawPassword) => {
+    const name = sanitizeInput(rawName);
+    const m = sanitizeInput(rawMail).trim().toLowerCase();
+    const password = sanitizeInput(rawPassword);
+    if (detectInjection(rawName) || detectInjection(rawMail)) {
+      secLogPush(`Заблокирована инъекция при регистрации (${rawMail.slice(0, 24)}…)`);
+      return "Ввод содержит запрещённые конструкции — регистрация отклонена.";
+    }
     if (name.trim().length < 2) return "Укажите имя (минимум 2 символа).";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) return "Похоже, в адресе почты опечатка.";
     if (password.length < 6) return "Пароль должен быть не короче 6 символов.";
     if (state.users.some(u => u.email.toLowerCase() === m)) return "Эта почта уже зарегистрирована.";
     const code = genCode();
-    setPending({ purpose: "register", email: m, name: name.trim(), code, attempts: 0 });
+    setPending({ purpose: "register", email: m, name: sanitizeInput(name).trim(), code, attempts: 0 });
     window.setTimeout(() => sendEmail(m, code), 700);
     return null;
   };

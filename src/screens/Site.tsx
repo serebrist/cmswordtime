@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { I, WTMark } from "../components/icons";
 import { SmartImg } from "../components/ui";
 import { ruDate } from "../lib/data";
-import { useStore } from "../lib/store";
+import { detectInjection, sanitizeInput, secLogPush, useStore } from "../lib/store";
 
 export default function SitePreview() {
   const { state, setSiteOpen, toast } = useStore();
@@ -130,8 +130,17 @@ export default function SitePreview() {
                   ))}
                   {postComments(post.id).length === 0 && <p className="text-[13.5px] text-mut">Будьте первым, кто оставит комментарий.</p>}
                 </div>
-                <form className="mt-6" onSubmit={e => { e.preventDefault(); toast("info", "Комментарий отправлен на модерацию", "Он появится после одобрения администратором."); (e.target as HTMLFormElement).reset(); }}>
-                  <textarea required rows={3} placeholder="Ваш комментарий…"
+                <form className="mt-6" onSubmit={e => {
+                  e.preventDefault();
+                  const f = e.target as HTMLFormElement;
+                  const raw = (f.elements.namedItem("ctext") as HTMLTextAreaElement)?.value ?? "";
+                  if (detectInjection(raw)) { secLogPush("Заблокирована инъекция в форме комментария на сайте"); toast("danger", "Комментарий отклонён", "Обнаружена попытка инъекции — текст не принят."); return; }
+                  const clean = sanitizeInput(raw).trim();
+                  if (clean.length < 2) return;
+                  toast("info", "Комментарий отправлен на модерацию", "Он появится после одобрения администратором.");
+                  f.reset();
+                }}>
+                  <textarea required rows={3} name="ctext" placeholder="Ваш комментарий…"
                     className="w-full px-4 py-3.5 rounded-xl border border-line bg-card text-[14px] outline-none focus:ring-[3px] transition-all resize-none"
                     style={{ ["--tw-ring-color" as string]: accent + "30" }} />
                   <button type="submit" className="mt-3 h-11 px-6 rounded-lg text-white text-[13.5px] font-bold hover:brightness-110 transition-all active:scale-[0.98] cursor-pointer" style={{ background: accent }}>

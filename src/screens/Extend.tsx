@@ -15,6 +15,13 @@ export function PluginsScreen({ initialTab }: { initialTab?: "installed" | "cata
   const installed = state.plugins.filter(p => p.installed);
   const catalog = state.plugins.filter(p => !p.installed && (q.trim() === "" || (p.name + p.desc + p.author).toLowerCase().includes(q.toLowerCase())));
 
+  const compatStage = (p: number) =>
+    p < 20 ? "Сверка версии PHP 8.3 и ядра Wordtime…" :
+    p < 40 ? "Проверка хуков add_action / add_filter…" :
+    p < 60 ? "Тест совместимости REST API wp/v2 ↔ wt/v1…" :
+    p < 80 ? "Экранирование SQL-запросов плагина…" :
+    p < 100 ? "Проверка прав и файлов…" : "Совместимость 100% — активация";
+
   const install = (slug: string) => {
     setBusy(b => ({ ...b, [slug]: 5 }));
     const steps = [18, 38, 57, 74, 88, 100];
@@ -108,7 +115,7 @@ export function PluginsScreen({ initialTab }: { initialTab?: "installed" | "cata
                 </div>
                 <div className="mt-3">
                   {busy[p.slug] !== undefined ? (
-                    <Progress value={busy[p.slug]} label="Установка через WT-Совместимость…" />
+                    <Progress value={busy[p.slug]} label={compatStage(busy[p.slug])} />
                   ) : (
                     <Btn className="w-full" kind="dark" onClick={() => install(p.slug)}><I n="download" size={15} />Установить и активировать</Btn>
                   )}
@@ -179,11 +186,12 @@ export function ThemesScreen() {
 
   const install = (slug: string) => {
     setBusy(slug);
+    toast("info", "Проверка совместимости темы…", "Иерархия шаблонов, sidebar, меню, блоки — по стандартам WordPress.");
     window.setTimeout(() => {
       mutate(s => { const t = s.themes.find(x => x.slug === slug); if (t) t.installed = true; });
       setBusy(null);
-      toast("ok", "Тема установлена", "Тема готова к активации.");
-    }, 1400);
+      toast("ok", "Тема установлена", "Совместимость 100%: шаблоны, виджеты и меню работают как в WordPress.");
+    }, 2100);
   };
 
   const activate = (slug: string) => {

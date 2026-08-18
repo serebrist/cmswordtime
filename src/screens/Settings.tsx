@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { I, IconName, WTMark } from "../components/icons";
 import { Badge, Btn, Field, Modal, Progress, SmartImg, Toggle, inputCls, selectCls } from "../components/ui";
 import { fmtKB, plural } from "../lib/data";
@@ -90,7 +90,32 @@ function GeneralTab() {
         </div>
         <p className="mt-4 flex items-center gap-2 text-[12.5px] text-mut"><I n="globe" size={14} /> Wordtime говорит по-русски: весь интерфейс, даты и числа — в русской локали.</p>
       </Card>
+      <ReinstallCard />
     </>
+  );
+}
+
+function ReinstallCard() {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = window.setTimeout(() => setArmed(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [armed]);
+  return (
+    <Card title="Сервис" desc="Служебные действия с установкой Wordtime.">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex-1 min-w-[220px]">
+          <p className="text-[14px] font-bold text-ink-900">Запустить мастер установки заново</p>
+          <p className="text-[12.5px] text-mut mt-0.5">Язык → проверка окружения → база данных → сайт. Данные сайта сохранятся.</p>
+        </div>
+        {armed ? (
+          <Btn kind="danger" onClick={() => { localStorage.removeItem("wordtime_installed_v1"); window.location.reload(); }}>Да, переустановить</Btn>
+        ) : (
+          <Btn kind="outline" onClick={() => setArmed(true)}><I n="hourglass" size={15} />Переустановить Wordtime</Btn>
+        )}
+      </div>
+    </Card>
   );
 }
 
