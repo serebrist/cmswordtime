@@ -53,6 +53,13 @@ body {
 @keyframes wt-scale-in { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 @keyframes wt-slide-right { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes wt-shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(2px); } 30%, 50%, 70% { transform: translateX(-4px); } 40%, 60% { transform: translateX(4px); } }
+@keyframes wt-row-scan {
+  0% { background-color: transparent; }
+  35% { background-color: rgba(14, 147, 132, 0.09); }
+  100% { background-color: transparent; }
+}
+.anim-row-scan { animation: wt-row-scan 0.7s ease both; }
+
 @keyframes wt-pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.72); } }
 @keyframes wt-drift { 0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; } 12% { opacity: var(--o, 0.5); } 88% { opacity: var(--o, 0.5); } 100% { transform: translate3d(var(--dx, 20px), -110px, 0) rotate(var(--rot, 12deg)); opacity: 0; } }
 @keyframes wt-sweep { from { transform: translateX(-110%); } to { transform: translateX(360%); } }

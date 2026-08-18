@@ -9,6 +9,7 @@ import { CommentsScreen, MediaScreen, MenusScreen, PagesScreen, ThemeEditorScree
 import { PluginsScreen, ThemesScreen } from "./screens/Extend";
 import Settings from "./screens/Settings";
 import SitePreview from "./screens/Site";
+import HealthScreen from "./screens/Health";
 
 function Screen() {
   const { route, nav, siteOpen } = useStore();
@@ -30,6 +31,7 @@ function Screen() {
     case route === "users": screen = <UsersScreen />; break;
     case route === "user-new": screen = <UsersScreen autoAdd />; break;
     case route === "updates": screen = <UpdatesScreen />; break;
+    case route === "health": screen = <HealthScreen />; break;
     case route.startsWith("settings"): {
       const tab = route.split(":")[1] ?? "general";
       const valid = ["general", "discussion", "cache", "security", "backups", "login"].includes(tab) ? tab : "general";

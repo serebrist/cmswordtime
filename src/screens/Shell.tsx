@@ -17,7 +17,7 @@ export const NAV: NavGroup[] = [
   { label: "Внешний вид", icon: "brush", children: [{ label: "Темы", route: "themes" }, { label: "Меню", route: "menus" }, { label: "Редактор темы", route: "theme-editor" }] },
   { label: "Плагины", icon: "plug", children: [{ label: "Установленные", route: "plugins" }, { label: "Добавить новый", route: "plugins-new" }] },
   { label: "Пользователи", icon: "users", children: [{ label: "Все пользователи", route: "users" }, { label: "Добавить нового", route: "user-new" }] },
-  { label: "Инструменты", icon: "wrench", children: [{ label: "Импорт", route: "settings:backups" }, { label: "Экспорт", route: "settings:backups" }, { label: "Миграция сайта", route: "settings:backups" }] },
+  { label: "Инструменты", icon: "wrench", children: [{ label: "Здоровье системы", route: "health" }, { label: "Импорт", route: "settings:backups" }, { label: "Экспорт", route: "settings:backups" }, { label: "Миграция сайта", route: "settings:backups" }] },
   { label: "Настройки", icon: "gear", children: [
     { label: "Общие", route: "settings:general" }, { label: "Обсуждение", route: "settings:discussion" },
     { label: "Кеш и скорость", route: "settings:cache" }, { label: "Безопасность", route: "settings:security" },
@@ -28,6 +28,7 @@ export const NAV: NavGroup[] = [
 export function routeTitle(route: string): string {
   if (route === "dashboard") return "Консоль";
   if (route === "updates") return "Обновления";
+  if (route === "health") return "Здоровье системы";
   if (route.startsWith("post")) return "Записи";
   if (route.startsWith("page")) return "Страницы";
   if (route.startsWith("media")) return "Медиафайлы";
