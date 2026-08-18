@@ -7,27 +7,44 @@ if (!defined('WT_ROOT')) exit;
 
 function wt_media_files() {
     $out = array();
-    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(WT_UPLOADS, FilesystemIterator::SKIP_DOTS));
-    foreach ($it as $f) {
-        if (!$f->isFile()) continue;
-        $rel = str_replace('\\', '/', substr($f->getPathname(), strlen(WT_UPLOADS) + 1));
-        if (basename($rel) === 'index.html') continue;
-        $out[] = array('rel' => $rel, 'size' => $f->getSize(), 'time' => $f->getMTime());
-    }
+    if (!is_dir(WT_UPLOADS)) return $out;
+    try {
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(WT_UPLOADS, FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $f) {
+            if (!$f->isFile()) continue;
+            $rel = str_replace('\\', '/', substr($f->getPathname(), strlen(WT_UPLOADS) + 1));
+            if (basename($rel) === 'index.html') continue;
+            $out[] = array('rel' => $rel, 'size' => $f->getSize(), 'time' => $f->getMTime());
+        }
+    } catch (Exception $e) { /* каталог недоступен — возвращаем что есть */ }
     usort($out, function ($a, $b) { return $b['time'] - $a['time']; });
     return $out;
 }
 function wt_fmt_kb($b) { return $b < 1024 ? $b . ' Б' : ($b < 1048576 ? round($b / 1024) . ' КБ' : number_format($b / 1048576, 1, ',', ' ') . ' МБ'); }
 function wt_dir_size($dir) {
     $s = 0;
-    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
-    foreach ($it as $f) if ($f->isFile()) $s += $f->getSize();
+    if (!is_dir($dir)) return 0;
+    try {
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $f) if ($f->isFile()) $s += $f->getSize();
+    } catch (Exception $e) { /* недоступно */ }
     return $s;
+}
+/* фолбэк, если bootstrap.php на сервере старше консоли */
+if (!function_exists('wt_sitemap_xml')) {
+    function wt_sitemap_xml() {
+        $base = (isset($_SERVER['REQUEST_SCHEME']) ? $_SERVER['REQUEST_SCHEME'] : 'https') . '://' . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost') . wt_base();
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        $xml .= '  <url><loc>' . esc($base . '/') . "</loc><priority>1.0</priority></url>\n";
+        foreach (wt_posts(array('limit' => 500)) as $p) $xml .= '  <url><loc>' . esc($base . '/?p=post:' . $p['slug']) . "</loc><priority>0.8</priority></url>\n";
+        foreach (wt_pages_list() as $pg) $xml .= '  <url><loc>' . esc($base . '/?p=page:' . $pg['slug']) . "</loc><priority>0.6</priority></url>\n";
+        return $xml . "</urlset>\n";
+    }
 }
 function wt_log_lines($limit = 40) {
     $log = WT_DATA . '/activity.log';
     if (!is_file($log)) return array();
-    $lines = array_slice(array_filter(array_map('trim', file($log))), -$limit);
+    $lines = array_slice(array_filter(array_map('trim', (array)@file($log))), -$limit);
     $out = array();
     foreach (array_reverse($lines) as $l) {
         if (preg_match('/^\[(.+?)\] (.*)$/', $l, $m)) $out[] = array($m[1], $m[2]);
@@ -419,7 +436,7 @@ function wt_screen_profile() {
 /* ── Темы ── */
 function wt_screen_themes() {
     $active = wt_option('active_theme', 'wordtime-twenty');
-    $dirs = array_filter(glob(WT_ROOT . '/wt-content/themes/*'), 'is_dir');
+    $dirs = array_values(array_filter((array)@glob(WT_ROOT . '/wt-content/themes/*'), 'is_dir'));
     wt_shell('themes', 'Темы', 'Оформление сайта — активная тема применяется мгновенно');
     echo '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px">';
     foreach ($dirs as $d) {

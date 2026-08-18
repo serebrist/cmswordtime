@@ -7,6 +7,41 @@
 if (!defined('WT_ROOT')) { http_response_code(403); exit('Прямой доступ запрещён'); }
 if (!file_exists(WT_ROOT . '/wt-config.php')) { header('Location: ' . wt_base() . '/install.php'); exit; }
 
+/* ── Диагностика фатальных ошибок: вместо «голого» 500 показываем суть ── */
+if (!function_exists('register_shutdown_function')) { /* отключена хостером — работаем без диагностики */ }
+else register_shutdown_function(function () {
+    $e = error_get_last();
+    if ($e === null || !in_array($e['type'], array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR), true)) return;
+    $msg  = htmlspecialchars($e['message'], ENT_QUOTES, 'UTF-8');
+    $file = htmlspecialchars(str_replace('\\', '/', $e['file']), ENT_QUOTES, 'UTF-8');
+    $line = (int)$e['line'];
+    $body = '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+        . '<title>Ошибка ядра — Wordtime</title>'
+        . '<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&family=Golos+Text:wght@400;600;700&display=swap" rel="stylesheet">'
+        . '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#071b21;color:#dcebee;font:15px/1.6 "Golos Text",system-ui,sans-serif;padding:24px}'
+        . '.w{max-width:680px;width:100%;background:#0c2e36;border:1px solid #1c4a56;border-radius:18px;overflow:hidden;box-shadow:0 30px 80px -30px rgba(0,0,0,.8)}'
+        . '.h{display:flex;align-items:center;gap:13px;padding:18px 24px;background:#0a2229;border-bottom:1px solid #1c4a56}'
+        . '.h b{font:800 16px "Unbounded",sans-serif;color:#fff}.h span{margin-left:auto;font:700 11px "Golos Text";letter-spacing:.12em;color:#f0b429;background:rgba(240,180,41,.12);border:1px solid rgba(240,180,41,.35);padding:4px 10px;border-radius:99px}'
+        . '.b{padding:22px 24px 24px}'
+        . 'pre{margin:0;background:#071b21;border:1px solid #174753;border-radius:12px;padding:16px 18px;color:#f2b8b5;font:13px/1.7 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}'
+        . '.kv{display:flex;gap:12px;padding:9px 0;border-bottom:1px dashed #174753;font-size:13.5px}.kv b{color:#7fa3ab;font-weight:600;min-width:110px}.kv span{color:#cfe4e6;word-break:break-all}'
+        . 'ul{margin:12px 0 0;padding-left:20px;color:#9fc0c5;font-size:13.5px}li{margin:5px 0}'
+        . 'code{background:#071b21;border:1px solid #174753;border-radius:6px;padding:1px 7px;font:12.5px ui-monospace,Menlo,monospace;color:#9fd8cd}</style></head><body><div class="w">'
+        . '<div class="h"><b>Wordtime — ошибка ядра</b><span>ДИАГНОСТИКА</span></div><div class="b">'
+        . '<pre>' . $msg . '</pre>'
+        . '<div style="margin-top:14px"><div class="kv"><b>Файл</b><span>' . $file . '</span></div>'
+        . '<div class="kv"><b>Строка</b><span>' . $line . '</span></div>'
+        . '<div class="kv"><b>PHP</b><span>' . PHP_VERSION . ' (' . PHP_SAPI . ')</span></div>'
+        . '<div class="kv"><b>Полный журнал</b><span>wt-data/error.log</span></div></div>'
+        . '<ul><li>Если файл из <code>wt-admin/</code> — обновите папку из свежего <code>Wordtime_cms.zip</code> целиком.</li>'
+        . '<li>«Undefined function» означает, что файл <code>wt-includes/bootstrap.php</code> старее консоли — замените и его.</li>'
+        . '<li>Ошибки прав доступа лечатся <code>chmod 755</code> и владельцем <code>www-data</code> для каталога сайта.</li>'
+        . '<li>После исправления эта страница исчезнет — данные сайта не пострадали.</li></ul>'
+        . '</div></div></body></html>';
+    if (!headers_sent()) { @http_response_code(500); @header('Content-Type: text/html; charset=utf-8'); }
+    echo $body;
+});
+
 wt_session_start();
 wt_load_plugins();
 
