@@ -1,6 +1,7 @@
 import { makeZip, type ZipEntry } from "./zip";
+import { CORE_FILES } from "./php-core";
 
-/* ── Реальные файлы установочного пакета Wordtime_cms.zip ─────────── */
+/* ── Установочный пакет Wordtime_cms.zip (полное PHP-ядро) ────────── */
 
 const INDEX_PHP = `<?php
 /**
@@ -284,26 +285,25 @@ REST API доступно на /wt/v1/ — ключи создаются в ко
 2FA обязательна для всех пользователей и встроена в ядро.
 `;
 
-export const DEPLOY_FILES: ZipEntry[] = [
-  { path: "Wordtime_cms/index.php", content: INDEX_PHP },
-  { path: "Wordtime_cms/install.php", content: INSTALL_PHP },
-  { path: "Wordtime_cms/wt-config-sample.php", content: CONFIG_SAMPLE },
-  { path: "Wordtime_cms/wt-cron.php", content: CRON_PHP },
-  { path: "Wordtime_cms/.htaccess", content: HTACCESS },
-  { path: "Wordtime_cms/Dockerfile", content: DOCKERFILE },
-  { path: "Wordtime_cms/docker-compose.yml", content: COMPOSE_YML },
-  { path: "Wordtime_cms/README.md", content: README_MD },
-];
+export const DEPLOY_FILES: ZipEntry[] = CORE_FILES;
 
-export const FILE_SOURCES: Record<string, string> = {
-  "index.php": INDEX_PHP,
-  "install.php": INSTALL_PHP,
-  "wt-config-sample.php": CONFIG_SAMPLE,
-  ".htaccess": HTACCESS,
-  "Dockerfile": DOCKERFILE,
-  "docker-compose.yml": COMPOSE_YML,
-  "wt-cron.php": CRON_PHP,
-  "README.md": README_MD,
+export const FILE_SOURCES: Record<string, string> = Object.fromEntries(
+  CORE_FILES.map(f => [f.path.replace(/^Wordtime_cms\//, ""), f.content])
+);
+
+/* Описание файлов пакета для интерфейса */
+export const FILE_NOTES: Record<string, string> = {
+  "index.php": "Фронт-контроллер сайта: лента, записи, поиск, комментарии, sitemap, REST API",
+  "install.php": "Веб-установщик: проверка окружения → база данных → готово",
+  "wt-config-sample.php": "Образец конфигурации (установщик создаёт wt-config.php сам)",
+  "wt-includes/bootstrap.php": "Ядро: PDO, хуки add_action/add_filter, 2FA, анти-брутфорс, кеш, REST",
+  "wt-admin/index.php": "Консоль: записи, страницы, комментарии, настройки, бэкапы, API-ключи",
+  "wt-content/themes/wordtime-twenty/index.php": "Стартовая тема: адаптивная, с авто-SEO в <head>",
+  "wt-content/themes/wordtime-twenty/functions.php": "Точка подключения плагинов и фильтров темы",
+  "wt-content/uploads/index.html": "Каталог загрузок медиафайлов",
+  "nginx-wordtime.conf": "Готовый конфиг nginx + php8.3-fpm (красивые ссылки, защита, кеш)",
+  "wt-cron.php": "Обработчик асинхронной очереди (запускается по cron)",
+  "README.md": "Пошаговая установка: панель, FTP, VPS с nginx",
 };
 
 export function buildDeployZip(): Blob {
@@ -346,7 +346,12 @@ export const DEPLOY_METHODS: DeployMethod[] = [
       { key: "user", label: "Пользователь", ph: "root" },
       { key: "pass", label: "Пароль или путь к ключу", ph: "~/.ssh/id_rsa", secret: true },
     ] },
-  { id: "docker", name: "Docker", desc: "docker compose up — и готово", icon: "plug", note: "Локально или на любом сервере с Docker: PHP, MariaDB и Redis поднимутся контейнерами", fields: [] },
+  { id: "nginx", name: "nginx + PHP-FPM", desc: "Классический VPS без панелей", icon: "plug", note: "Ваш случай: nginx + php8.3-fpm + MariaDB — конфиг уже в архиве (nginx-wordtime.conf)",
+    fields: [
+      { key: "host", label: "Адрес сервера", ph: "185.10.10.10" },
+      { key: "user", label: "SSH-пользователь", ph: "root" },
+      { key: "pass", label: "Пароль или ключ", ph: "~/.ssh/id_rsa", secret: true },
+    ] },
   { id: "plesk", name: "Plesk", desc: "Панель Plesk Obsidian", icon: "globe", note: "Подходит: хостинги с Plesk — установка через «Приложения» или файлы",
     fields: [
       { key: "domain", label: "Домен сайта", ph: "mysite.ru" },
@@ -372,7 +377,7 @@ export function buildScript(methodId: string, v: V): { text: string; kind: "cmd"
         L(`→ Подключение к ${v.host || "ftp.mysite.ru"}:21… OK`, "ok"),
         L(`→ Авторизация пользователя ${usr}… OK`, "ok"),
         L(`→ Свободное место на хостинге: 2,4 ГБ — достаточно`, "info"),
-        L(`→ Загрузка ядра Wordtime 1.0.4 (12,8 МБ)… 100%`, "info"),
+        L(`→ Загрузка ядра Wordtime 1.1 (полное PHP-ядро)… 100%`, "info"),
         L(`→ Распаковка в ${path}/… 142 файла`, "info"),
         L(`→ Проверка PHP на сервере: 8.3.14 ✓ · mysqli ✓ · mbstring ✓ · gd ✓`, "ok"),
         L(`→ Подключение к MySQL… OK · создание 14 таблиц wt_*`, "ok"),
@@ -391,20 +396,25 @@ export function buildScript(methodId: string, v: V): { text: string; kind: "cmd"
         L(`→ Создание базы wordtime и пользователя wt_app…`, "ok"),
         L(`→ Скачивание Wordtime_cms.zip с get.wordtime.ru… 12,8 МБ`, "info"),
         L(`→ Распаковка в /var/www/wordtime, права www-data…`, "info"),
-        L(`→ Apache: mod_rewrite + headers включены, виртуальный хост создан`, "ok"),
+        L(`→ nginx: sites-available/wordtime.conf подключён, php8.3-fpm сокет найден`, "ok"),
         L(`→ Cron: wt-cron.php добавлен (асинхронные задачи каждую минуту)`, "ok"),
         L(`→ Сертификат Let's Encrypt выпущен автоматически`, "ok"),
         L(`✔ Wordtime работает: https://${v.host || "185.10.10.10"}/ · консоль: /wt-admin/`, "done"),
       ];
-    case "docker":
+    case "nginx":
       return [
-        L(`$ docker compose up -d`, "cmd"),
-        L(`→ Сборка образа wordtime (php:8.3-apache + расширения)…`, "info"),
-        L(`→ Контейнер db: MariaDB 10.11 — healthy`, "ok"),
-        L(`→ Контейнер redis: объектный кеш — запущен`, "ok"),
-        L(`→ Контейнер wordtime: Apache на :8080 — запущен`, "ok"),
-        L(`→ Миграции: 14 таблиц wt_* созданы`, "ok"),
-        L(`✔ Готово: http://localhost:8080 → веб-установщик, консоль — /wt-admin/`, "done"),
+        L(`$ ssh ${usr}@${v.host || "185.10.10.10"} "wt-install --stack nginx"`, "cmd"),
+        L(`→ Соединение установлено (ed25519)`, "ok"),
+        L(`→ Стек уже на сервере: nginx 1.24 ✓ · php8.3-fpm ✓ · MariaDB 10.11 ✓`, "ok"),
+        L(`→ Расширения PHP: pdo_mysql ✓ · mbstring ✓ · gd ✓ · zip ✓`, "ok"),
+        L(`→ Загрузка Wordtime_cms.zip (полное PHP-ядро)… 100%`, "info"),
+        L(`→ Распаковка в /var/www/wordtime, права www-data…`, "info"),
+        L(`→ nginx-wordtime.conf → /etc/nginx/sites-enabled/ · nginx -t: OK`, "ok"),
+        L(`→ systemctl reload nginx · сокет /run/php/php8.3-fpm.sock найден`, "ok"),
+        L(`→ База wordtime создана (utf8mb4), пользователь привязан`, "ok"),
+        L(`→ install.php: 5 таблиц wt_* созданы, администратор добавлен`, "ok"),
+        L(`→ cron: wt-cron.php каждую минуту (асинхронная очередь)`, "ok"),
+        L(`✔ Wordtime работает: https://${v.host || "185.10.10.10"}/ · консоль: /wt-admin/`, "done"),
       ];
     case "cpanel":
       return [
@@ -415,7 +425,7 @@ export function buildScript(methodId: string, v: V): { text: string; kind: "cmd"
         L(`→ Распаковка архива… 142 файла`, "info"),
         L(`→ PHP Selector: версия 8.3, лимит памяти 256 МБ`, "ok"),
         L(`→ Запуск install.php: таблицы созданы, администратор добавлен`, "ok"),
-        L(`→ .htaccess: mod_rewrite проверен — работает`, "ok"),
+        L(`→ Маршрутизация /?p=... работает без правок конфигурации сервера`, "ok"),
         L(`✔ Wordtime работает: https://${dom}/ · консоль: https://${dom}/wt-admin/`, "done"),
       ];
     case "isp":
@@ -470,20 +480,23 @@ export const GUIDES: Guide[] = [
   {
     id: "vps", title: "Чистый VPS по SSH (Ubuntu/Debian)", badge: "Полный контроль",
     steps: [
-      { t: "Подключитесь к серверу и установите стек:", code: "ssh root@ВАШ_IP\napt update && apt install -y apache2 mariadb-server php8.3 php8.3-{mysql,mbstring,gd,zip,redis} libapache2-mod-php8.3" },
+      { t: "Подключитесь к серверу и установите классический стек:", code: "ssh root@ВАШ_IP\napt update && apt install -y nginx mariadb-server php8.3-fpm php8.3-mysql php8.3-mbstring php8.3-gd php8.3-zip unzip" },
       { t: "Создайте базу данных:", code: "mysql -e \"CREATE DATABASE wordtime CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\"" },
-      { t: "Скачайте и распакуйте Wordtime в корень веб-сервера:", code: "curl -LO https://get.wordtime.ru/Wordtime_cms.zip\nunzip Wordtime_cms.zip -d /var/www/html\nchown -R www-data:www-data /var/www/html\na2enmod rewrite headers && systemctl reload apache2" },
-      { t: "Добавьте cron для асинхронной очереди:", code: "(crontab -l; echo \"* * * * * php /var/www/html/wt-cron.php\") | crontab -" },
-      { t: "Откройте IP сервера или домен — веб-установщик сделает всё остальное. SSL: apt install certbot python3-certbot-apache && certbot." },
+      { t: "Распакуйте Wordtime и подключите конфиг nginx из архива:", code: "unzip Wordtime_cms.zip -d /var/www/\nchown -R www-data:www-data /var/www/Wordtime_cms\ncp /var/www/Wordtime_cms/nginx-wordtime.conf /etc/nginx/sites-available/wordtime.conf\nln -s /etc/nginx/sites-available/wordtime.conf /etc/nginx/sites-enabled/\nnginx -t && systemctl reload nginx" },
+      { t: "Добавьте cron для асинхронной очереди:", code: "(crontab -l; echo \"* * * * * php /var/www/Wordtime_cms/wt-cron.php\") | crontab -" },
+      { t: "Откройте домен — веб-установщик сделает всё остальное. SSL: apt install certbot python3-certbot-nginx && certbot --nginx." },
     ],
   },
   {
-    id: "docker", title: "Docker — локально или на сервере", badge: "Одной командой",
+    id: "nginx", title: "VPS: nginx + PHP 8.3-FPM + MariaDB", badge: "Классический хостинг",
     steps: [
-      { t: "Скачайте Wordtime_cms.zip и распакуйте — внутри уже есть Dockerfile и docker-compose.yml." },
-      { t: "Поднимите контейнеры (PHP 8.3 + Apache, MariaDB 10.11, Redis для объектного кеша):", code: "cd Wordtime_cms\ndocker compose up -d" },
-      { t: "Откройте http://localhost:8080 — веб-установщик запустится автоматически, база уже создана." },
-      { t: "Для продакшена пробросьте домен через nginx-прокси или Traefik и включите HTTPS-сертификаты." },
+      { t: "Убедитесь, что стек установлен (обычно уже стоит на хостинге):", code: "sudo apt install -y nginx mariadb-server php8.3-fpm php8.3-mysql php8.3-mbstring php8.3-gd php8.3-zip" },
+      { t: "Создайте базу данных в MariaDB:", code: "sudo mysql -e \"CREATE DATABASE wordtime CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE USER 'wordtime'@'localhost' IDENTIFIED BY 'СЛОЖНЫЙ_ПАРОЛЬ'; GRANT ALL ON wordtime.* TO 'wordtime'@'localhost'; FLUSH PRIVILEGES;\"" },
+      { t: "Распакуйте архив в корень сайта:", code: "sudo unzip Wordtime_cms.zip -d /var/www/\nsudo chown -R www-data:www-data /var/www/Wordtime_cms" },
+      { t: "Подключите готовый конфиг nginx из архива (поправьте server_name и root):", code: "sudo cp /var/www/Wordtime_cms/nginx-wordtime.conf /etc/nginx/sites-available/wordtime.conf\nsudo ln -s /etc/nginx/sites-available/wordtime.conf /etc/nginx/sites-enabled/\nsudo nginx -t && sudo systemctl reload nginx" },
+      { t: "Откройте домен — установщик создаст таблицы и администратора. Консоль: /wt-admin/, вход с кодом 2FA из письма." },
+      { t: "Добавьте cron для асинхронных задач:", code: "(crontab -l; echo \"* * * * * php /var/www/Wordtime_cms/wt-cron.php\") | crontab -" },
+      { t: "HTTPS одной командой:", code: "sudo apt install certbot python3-certbot-nginx && sudo certbot --nginx" },
     ],
   },
 ];

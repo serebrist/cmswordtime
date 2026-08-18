@@ -1,18 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { I, WTMark } from "../components/icons";
-import { downloadBlob, fmtBytes } from "../lib/zip";
-import { buildDeployZip, DEPLOY_FILES } from "../lib/deploy";
-
-const FILE_NOTES: Record<string, string> = {
-  "index.php": "Точка входа · REST API /wt/v1/",
-  "install.php": "Веб-установщик · создаёт БД и таблицы",
-  "wt-config-sample.php": "Образец конфигурации",
-  "wt-cron.php": "Фоновая очередь задач",
-  ".htaccess": "Безопасность · сжатие · кеш",
-  "Dockerfile": "Контейнер PHP 8.3 + Apache",
-  "docker-compose.yml": "MariaDB 10.11 + Redis",
-  "README.md": "4 способа установки",
-};
+import { downloadBlob, downloadText, fmtBytes } from "../lib/zip";
+import { buildDeployZip, DEPLOY_FILES, FILE_NOTES } from "../lib/deploy";
 
 const crcOf = (s: string) => {
   const d = new TextEncoder().encode(s);
@@ -80,7 +69,7 @@ export default function DownloadPage({ onBack }: { onBack: () => void }) {
         <span className="flex items-center gap-2.5">
           <WTMark size={30} />
           <span className="font-display font-extrabold text-[16px] tracking-tight">Wordtime</span>
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-brand/15 text-amber-brand border border-amber-brand/30">v1.0.4</span>
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-brand/15 text-amber-brand border border-amber-brand/30">v1.1 · PHP</span>
         </span>
         <button onClick={onBack} className="ml-auto flex items-center gap-2 h-9 px-4 rounded-lg border border-deep-line text-paper/75 hover:text-white hover:border-teal-brand/50 transition-all cursor-pointer text-[13px] font-bold">
           <I n="arrowL" size={15} />Вернуться в консоль
@@ -97,12 +86,12 @@ export default function DownloadPage({ onBack }: { onBack: () => void }) {
             Wordtime_cms<span className="text-teal-brand">.zip</span>
           </h1>
           <p className="text-[15px] text-paper/65 mt-4 max-w-lg leading-relaxed">
-            Полный дистрибутив CMS для установки на <b className="text-paper">любой хостинг</b> с PHP — от виртуального до выделенного сервера.
-            Архив собран прямо в вашем браузере и готов к скачиванию.
+            <b className="text-paper">Полное PHP-ядро CMS</b> для классических хостингов: nginx или Apache + PHP 7.4–8.3 (FPM) + MySQL/MariaDB.
+            Без Docker и Composer — только файлы и база. Распаковали, открыли домен — установщик сделает всё сам.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2.5">
-            {[`${fmtBytes(totalSize)} · ${DEPLOY_FILES.length} файлов`, "PHP 8.2+", "MariaDB / MySQL", "Docker", "2FA в ядре"].map(t => (
+            {[`${fmtBytes(totalSize)} · ${DEPLOY_FILES.length} файлов`, "PHP 7.4 – 8.3", "nginx / Apache", "MariaDB / MySQL", "REST API", "2FA в ядре"].map(t => (
               <span key={t} className="px-3 py-1.5 rounded-lg bg-deep-line/40 border border-deep-line text-[12px] font-bold text-paper/80">{t}</span>
             ))}
           </div>
@@ -194,20 +183,27 @@ export default function DownloadPage({ onBack }: { onBack: () => void }) {
               <span className="ml-auto text-[11.5px] font-bold text-paper/45 tabular">{fmtBytes(totalSize)}</span>
             </div>
             <ul>
-              {DEPLOY_FILES.map(f => (
-                <li key={f.path} className="flex items-center gap-3.5 px-5 py-2.5 border-b border-deep-line/50 last:border-0 hover:bg-deep-line/25 transition-colors">
-                  <I n="file" size={14} className="text-paper/40 shrink-0" />
-                  <span className="font-mono text-[12.5px] text-paper/90 w-44 shrink-0 truncate">{f.path.replace("Wordtime_cms/", "")}</span>
-                  <span className="text-[12px] text-paper/50 flex-1 truncate hidden sm:block">{FILE_NOTES[f.path.replace("Wordtime_cms/", "")] ?? ""}</span>
-                  <span className="text-[11.5px] font-bold text-paper/40 tabular shrink-0">{fmtBytes(new TextEncoder().encode(f.content).length)}</span>
-                </li>
-              ))}
+              {DEPLOY_FILES.map(f => {
+                const rel = f.path.replace("Wordtime_cms/", "");
+                return (
+                  <li key={f.path} className="flex items-center gap-3 px-5 py-2.5 border-b border-deep-line/50 last:border-0 hover:bg-deep-line/25 transition-colors group" title={rel}>
+                    <I n="file" size={14} className="text-paper/40 shrink-0" />
+                    <span className="font-mono text-[12px] text-paper/90 w-40 shrink-0 truncate">{rel}</span>
+                    <span className="text-[11.5px] text-paper/50 flex-1 truncate hidden md:block">{FILE_NOTES[rel] ?? ""}</span>
+                    <span className="text-[11px] font-bold text-paper/40 tabular shrink-0">{fmtBytes(new TextEncoder().encode(f.content).length)}</span>
+                    <button onClick={() => downloadText(f.content, rel.split("/").pop() ?? rel, "text/plain")}
+                      className="w-7 h-7 grid place-items-center rounded-md text-paper/35 hover:text-teal-brand hover:bg-teal-brand/10 transition-all cursor-pointer shrink-0 opacity-60 group-hover:opacity-100" title={`Скачать ${rel}`}>
+                      <I n="download" size={13} sw={2} />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
           <p className="text-[12px] text-paper/45 leading-relaxed flex gap-2.5">
             <I n="shield" size={15} className="shrink-0 mt-0.5 text-teal-brand" />
-            Архив собирается заново при каждом скачивании, поэтому всегда содержит актуальную версию ядра, плагинов и настроек совместимости с WordPress.
+            Архив собирается заново при каждом скачивании, поэтому всегда содержит актуальное PHP-ядро. Проверяли на классическом стеке: nginx + php8.3-fpm + MariaDB — после распаковки достаточно открыть домен.
           </p>
         </div>
       </main>

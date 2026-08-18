@@ -22,7 +22,7 @@ const lineCls: Record<Line["kind"], string> = {
 const REQ = [
   ["PHP 8.2+", "расширения: mysqli, mbstring, gd, zip"],
   ["MySQL 5.7+ / MariaDB 10.3+", "кодировка utf8mb4"],
-  ["Apache mod_rewrite или Nginx", "человеко-понятные ссылки"],
+  ["Nginx или Apache", "работает без правок конфигурации"],
   ["64 МБ памяти · 100 МБ диска", "для ядра и медиафайлов"],
 ] as const;
 
