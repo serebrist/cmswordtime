@@ -20,6 +20,7 @@ if (!file_exists(WT_ROOT . '/wt-config.php')) {
 
 require WT_ROOT . '/wt-config.php';
 require WT_ROOT . '/wt-includes/bootstrap.php';
+wt_load_plugins();
 wt_load_theme_functions();
 
 /* ── Консоль (работает на любом хостинге без правок nginx) ────────── */

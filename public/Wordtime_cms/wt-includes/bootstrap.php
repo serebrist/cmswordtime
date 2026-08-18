@@ -519,6 +519,15 @@ function wt_load_theme_functions() {
     $f = wt_theme_dir() . '/functions.php';
     if (is_file($f)) require_once $f;
 }
+function wt_load_plugins() {
+    $active = wt_option('active_plugins', array());
+    if (!is_array($active)) return;
+    foreach ($active as $file) {
+        $file = basename((string)$file);
+        $path = WT_ROOT . '/wt-content/plugins/' . $file;
+        if (substr($file, -4) === '.php' && is_file($path)) require_once $path;
+    }
+}
 
 /* ── Комментарии с сайта ──────────────────────────────────────────── */
 function wt_comment_submit() {
