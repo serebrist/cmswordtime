@@ -1,49 +1,123 @@
 @import "tailwindcss";
 
-@theme {
+/* ── Токены палитры Wordtime: светлая и тёмная схемы ──────────────────
+   Контентные токены (canvas/card/line/mut/ink-*) инвертируются,
+   хром (deep-*) и бумага (paper) — фиксированные, фирменный петроль. */
+
+@theme inline {
   --font-display: "Unbounded", "Golos Text", sans-serif;
   --font-body: "Golos Text", "Segoe UI", sans-serif;
 
-  --color-ink-950: #071b21;
-  --color-ink-900: #0c2e36;
-  --color-ink-800: #113a44;
-  --color-ink-700: #174753;
-  --color-ink-600: #1f5663;
-  --color-ink-500: #2c6b7a;
+  --color-canvas: var(--wt-canvas);
+  --color-card: var(--wt-card);
+  --color-line: var(--wt-line);
+  --color-mut: var(--wt-mut);
+
+  --color-ink-950: var(--wt-ink-950);
+  --color-ink-900: var(--wt-ink-900);
+  --color-ink-800: var(--wt-ink-800);
+  --color-ink-700: var(--wt-ink-700);
+  --color-ink-600: var(--wt-ink-600);
+  --color-ink-500: var(--wt-ink-500);
+
+  --color-paper: #eef3f3;
+
+  --color-deep: #081f26;
+  --color-deep-2: #0c2e36;
+  --color-deep-line: #1d4b57;
+  --color-deep-hi: #245966;
 
   --color-teal-brand: #14b8a6;
-  --color-teal-deep: #0e9384;
-  --color-teal-soft: #d7f5f0;
+  --color-teal-deep: var(--wt-teal-deep);
+  --color-teal-soft: var(--wt-teal-soft);
 
   --color-amber-brand: #f2b03d;
   --color-amber-deep: #d99417;
 
-  --color-paper: #eef3f3;
-  --color-card: #ffffff;
-  --color-line: #dbe5e6;
-  --color-mut: #5c7379;
-
-  --color-ok: #16a34a;
+  --color-ok: var(--wt-ok);
   --color-warn: #d97706;
-  --color-danger: #dc2626;
+  --color-danger: var(--wt-danger);
 
-  --shadow-panel: 0 1px 2px rgba(12, 46, 54, 0.06), 0 8px 24px -12px rgba(12, 46, 54, 0.18);
-  --shadow-pop: 0 12px 40px -8px rgba(7, 27, 33, 0.35);
+  --shadow-panel: var(--wt-shadow-panel);
+  --shadow-pop: var(--wt-shadow-pop);
+}
+
+/* светлая схема (по умолчанию) */
+:root {
+  --wt-canvas: #eef3f3;
+  --wt-card: #ffffff;
+  --wt-line: #dbe5e6;
+  --wt-mut: #5c7379;
+  --wt-ink-950: #071b21;
+  --wt-ink-900: #0c2e36;
+  --wt-ink-800: #113a44;
+  --wt-ink-700: #174753;
+  --wt-ink-600: #1f5663;
+  --wt-ink-500: #2c6b7a;
+  --wt-teal-deep: #0e9384;
+  --wt-teal-soft: #d7f5f0;
+  --wt-ok: #16a34a;
+  --wt-danger: #dc2626;
+  --wt-body: #122a31;
+  --wt-scroll: #b7c9cc;
+  --wt-shadow-panel: 0 1px 2px rgba(12, 46, 54, 0.06), 0 8px 24px -12px rgba(12, 46, 54, 0.18);
+  --wt-shadow-pop: 0 12px 40px -8px rgba(7, 27, 33, 0.35);
+}
+
+/* тёмная схема */
+html[data-theme="dark"] {
+  --wt-canvas: #0a2229;
+  --wt-card: #0f323c;
+  --wt-line: #1e4b57;
+  --wt-mut: #8ba7ae;
+  --wt-ink-950: #e9f2f3;
+  --wt-ink-900: #d8e6e8;
+  --wt-ink-800: #b3c9ce;
+  --wt-ink-700: #7f9ba3;
+  --wt-ink-600: #64858f;
+  --wt-ink-500: #3d7c8c;
+  --wt-teal-deep: #1aa795;
+  --wt-teal-soft: #134450;
+  --wt-ok: #3fbf6f;
+  --wt-danger: #f0655f;
+  --wt-body: #cfe0e3;
+  --wt-scroll: #2c5a66;
+  --wt-shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.28), 0 10px 28px -14px rgba(0, 0, 0, 0.5);
+  --wt-shadow-pop: 0 16px 48px -10px rgba(0, 0, 0, 0.6);
+}
+
+/* фиксированные области: логин/сайт всегда светлые, установщик всегда тёмный */
+.theme-force-light {
+  --wt-canvas: #eef3f3; --wt-card: #ffffff; --wt-line: #dbe5e6; --wt-mut: #5c7379;
+  --wt-ink-950: #071b21; --wt-ink-900: #0c2e36; --wt-ink-800: #113a44;
+  --wt-ink-700: #174753; --wt-ink-600: #1f5663; --wt-ink-500: #2c6b7a;
+  --wt-teal-deep: #0e9384; --wt-teal-soft: #d7f5f0; --wt-ok: #16a34a; --wt-danger: #dc2626;
+  --wt-body: #122a31; --wt-scroll: #b7c9cc;
+}
+.theme-force-dark {
+  --wt-canvas: #0a2229; --wt-card: #0f323c; --wt-line: #1e4b57; --wt-mut: #8ba7ae;
+  --wt-ink-950: #e9f2f3; --wt-ink-900: #d8e6e8; --wt-ink-800: #b3c9ce;
+  --wt-ink-700: #7f9ba3; --wt-ink-600: #64858f; --wt-ink-500: #3d7c8c;
+  --wt-teal-deep: #1aa795; --wt-teal-soft: #134450; --wt-ok: #3fbf6f; --wt-danger: #f0655f;
+  --wt-body: #cfe0e3; --wt-scroll: #2c5a66;
 }
 
 html, body, #root { height: 100%; }
 
 body {
   font-family: var(--font-body);
-  background: var(--color-paper);
-  color: #122a31;
+  background: var(--wt-canvas);
+  color: var(--wt-body);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.35s ease, color 0.35s ease;
 }
 
+header, main { transition: background-color 0.35s ease; }
+
 /* ---------- scrollbars ---------- */
-* { scrollbar-width: thin; scrollbar-color: #b7c9cc transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--wt-scroll) transparent; }
 *::-webkit-scrollbar { width: 9px; height: 9px; }
-*::-webkit-scrollbar-thumb { background: #b7c9cc; border-radius: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--wt-scroll); border-radius: 8px; }
 .dark-scroll { scrollbar-color: #24505b transparent; }
 .dark-scroll::-webkit-scrollbar-thumb { background: #24505b; }
 
@@ -59,6 +133,9 @@ body {
   100% { transform: rotate(360deg); }
 }
 .anim-hourflip { animation: wt-flip 3.6s cubic-bezier(0.7, 0, 0.3, 1) infinite; }
+
+@keyframes wt-theme-pop { from { transform: rotate(-110deg) scale(0.35); opacity: 0; } to { transform: rotate(0deg) scale(1); opacity: 1; } }
+.anim-theme-pop { animation: wt-theme-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 @keyframes wt-row-scan {
   0% { background-color: transparent; }

@@ -76,7 +76,7 @@ export default function Perf({ tab, onTab }: { tab: string; onTab: (t: string) =
         {TABS.map(t => (
           <button key={t.key} onClick={() => onTab(t.key)}
             className={`flex items-center gap-2 px-4 h-10 rounded-lg text-[13px] font-bold border transition-all cursor-pointer
-              ${tab === t.key ? "bg-ink-900 text-white border-ink-900 shadow-panel" : "bg-card text-mut border-line hover:border-ink-600/40 hover:text-ink-900"}`}>
+              ${tab === t.key ? "bg-deep-2 text-white border-deep-2 shadow-panel" : "bg-card text-mut border-line hover:border-ink-600/40 hover:text-ink-900"}`}>
             <span className={tab === t.key ? "text-teal-brand" : ""}><I n={t.icon} size={15} /></span>{t.label}
           </button>
         ))}
@@ -107,7 +107,7 @@ function Card({ title, desc, children, right }: { title: string; desc?: string; 
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "teal" | "amber" }) {
   return (
-    <div className="flex-1 min-w-[130px] p-4 rounded-xl bg-paper/70 border border-line">
+    <div className="flex-1 min-w-[130px] p-4 rounded-xl bg-canvas/70 border border-line">
       <p className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-mut">{label}</p>
       <p className={`font-display font-extrabold text-[24px] tabular leading-tight mt-1 ${tone === "amber" ? "text-amber-deep" : "text-ink-900"}`}>{value}</p>
       {sub && <p className="text-[11.5px] text-mut mt-0.5">{sub}</p>}
@@ -233,7 +233,7 @@ function SpeedTab() {
                 <Toggle on={D[o.k]} onChange={v => { up({ delivery: { ...D, [o.k]: v } }); toast(v ? "ok" : "info", v ? "Включено" : "Выключено", o.l); }} />
               </div>
             ))}
-            <div className="mt-3 p-3.5 rounded-lg bg-ink-900 text-paper flex items-center gap-3">
+            <div className="mt-3 p-3.5 rounded-lg bg-deep-2 text-paper flex items-center gap-3">
               <I n="rocket" size={17} className="text-amber-brand" />
               <span className="text-[13px] font-bold">Итого: передача легче на <span className="text-amber-brand tabular">{savings}%</span></span>
             </div>
@@ -400,7 +400,7 @@ function SitemapTab() {
           </div>}>
           <div className="overflow-x-auto rounded-xl border border-line">
             <table className="w-full text-[12.5px]">
-              <thead><tr className="bg-paper text-left text-mut">
+              <thead><tr className="bg-canvas text-left text-mut">
                 {["Адрес", "Тип", "lastmod", "частота", "приоритет"].map(h => <th key={h} className="px-4 py-2.5 font-extrabold uppercase text-[10.5px] tracking-[0.1em]">{h}</th>)}
               </tr></thead>
               <tbody>
@@ -439,7 +439,7 @@ function SitemapTab() {
       </div>
 
       <Card title="Живой XML">
-        <pre className="p-5 rounded-xl bg-ink-950 text-teal-brand/90 text-[12px] leading-relaxed overflow-auto max-h-72 font-mono whitespace-pre">{xml}</pre>
+        <pre className="p-5 rounded-xl bg-deep text-teal-brand/90 text-[12px] leading-relaxed overflow-auto max-h-72 font-mono whitespace-pre">{xml}</pre>
       </Card>
     </>
   );
@@ -492,7 +492,7 @@ function SeoTab() {
                 </div>
               ))}
             </div>
-            <div className="mt-5 rounded-xl bg-ink-950 p-4 overflow-x-auto">
+            <div className="mt-5 rounded-xl bg-deep p-4 overflow-x-auto">
               <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-paper/40 mb-2">Размещение в коде — внутри &lt;head&gt;, до контента</p>
               <pre className="text-[12px] leading-relaxed font-mono text-paper/85"><span className="text-mut">&lt;head&gt;</span>{"\n"}  <span className="text-teal-brand">&lt;title&gt;</span>{title}<span className="text-teal-brand">&lt;/title&gt;</span>{"\n"}  <span className="text-amber-brand">&lt;meta</span> name=<span className="text-teal-brand">"description"</span> content=<span className="text-teal-brand">"{desc.slice(0, 60)}…"</span> <span className="text-amber-brand">/&gt;</span>{"\n"}  {seo.og && <><span className="text-amber-brand">&lt;meta</span> property=<span className="text-teal-brand">"og:title"</span> … <span className="text-amber-brand">/&gt;</span>{"\n"}</>}  <span className="text-amber-brand">&lt;link</span> rel=<span className="text-teal-brand">"canonical"</span> href=<span className="text-teal-brand">"…"</span> <span className="text-amber-brand">/&gt;</span>{"\n"}<span className="text-mut">&lt;/head&gt;</span></pre>
             </div>
@@ -615,10 +615,10 @@ function ApiTab() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-[13px] font-semibold text-ink-800 mb-1.5">Платформа</p>
-                <div className="grid grid-cols-2 p-1 bg-paper rounded-lg">
+                <div className="grid grid-cols-2 p-1 bg-canvas rounded-lg">
                   {(["Android", "iOS"] as const).map(p => (
                     <button key={p} onClick={() => setApp({ ...app, platform: p })}
-                      className={`h-9 rounded-md text-[13px] font-bold transition-all cursor-pointer ${app.platform === p ? "bg-ink-900 text-white shadow" : "text-mut hover:text-ink-900"}`}>{p}</button>
+                      className={`h-9 rounded-md text-[13px] font-bold transition-all cursor-pointer ${app.platform === p ? "bg-deep-2 text-white shadow" : "text-mut hover:text-ink-900"}`}>{p}</button>
                   ))}
                 </div>
               </div>
@@ -663,7 +663,7 @@ function ApiTab() {
                     <Badge tone={k.scope === "полный доступ" ? "amber" : "teal"}>{k.scope.toUpperCase()}</Badge>
                   </div>
                   <div className="mt-2 flex items-center gap-2">
-                    <code className="flex-1 text-[12px] text-mut bg-paper border border-line rounded-md px-2.5 py-1.5 truncate">{masked[k.id] ? k.key : k.key.slice(0, 12) + "••••••••••••"}</code>
+                    <code className="flex-1 text-[12px] text-mut bg-canvas border border-line rounded-md px-2.5 py-1.5 truncate">{masked[k.id] ? k.key : k.key.slice(0, 12) + "••••••••••••"}</code>
                     <button onClick={() => setMasked(m => ({ ...m, [k.id]: !m[k.id] }))} className="w-8 h-8 grid place-items-center rounded-md text-mut hover:text-ink-900 transition-colors cursor-pointer"><I n={masked[k.id] ? "eyeoff" : "eye"} size={15} /></button>
                     <button onClick={async () => { try { await navigator.clipboard.writeText(k.key); toast("ok", "Ключ скопирован"); } catch { toast("warn", "Не удалось скопировать"); } }} className="w-8 h-8 grid place-items-center rounded-md text-mut hover:text-teal-deep transition-colors cursor-pointer"><I n="copy" size={15} /></button>
                     <button onClick={() => { setPf(s => ({ ...s, api: { ...s.api, keys: s.api.keys.map(x => x.id === k.id ? { ...x, key: genKey() } : x) } })); toast("ok", "Ключ перевыпущен", "Старый ключ перестал работать."); }} className="w-8 h-8 grid place-items-center rounded-md text-mut hover:text-warn transition-colors cursor-pointer" title="Перевыпустить"><I n="refresh" size={15} /></button>
@@ -684,7 +684,7 @@ function ApiTab() {
           <Card title="Методы REST API" desc="Тот же формат данных, что у wp-json — мобильным разработчикам всё знакомо.">
             <div className="space-y-1.5">
               {endpoints.map(([m, p, d, s]) => (
-                <div key={p + m} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-paper transition-colors">
+                <div key={p + m} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-canvas transition-colors">
                   <span className={`w-14 text-center text-[10.5px] font-extrabold py-1 rounded-md ${m === "GET" ? "bg-teal-deep/10 text-teal-deep" : "bg-amber-brand/15 text-amber-deep"}`}>{m}</span>
                   <code className="text-[12.5px] font-bold text-ink-800">{p}</code>
                   <span className="text-[12px] text-mut flex-1 text-right hidden sm:block">{d}</span>
@@ -700,7 +700,7 @@ function ApiTab() {
         <Card title="Журнал запросов к API" right={<Badge tone="teal">LIVE</Badge>}>
           <div className="space-y-1.5 font-mono text-[12px]">
             {pf.api.log.map((l, i) => (
-              <p key={l + i} className={`p-2 rounded-md bg-paper/60 border border-line truncate ${i === 0 ? "anim-fade text-ink-900" : "text-mut"}`}>{l}</p>
+              <p key={l + i} className={`p-2 rounded-md bg-canvas/60 border border-line truncate ${i === 0 ? "anim-fade text-ink-900" : "text-mut"}`}>{l}</p>
             ))}
           </div>
         </Card>

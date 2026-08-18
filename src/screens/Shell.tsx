@@ -43,10 +43,21 @@ export function routeTitle(route: string): string {
   return "Консоль";
 }
 
+/* ── тема консоли ── */
+type ConsoleTheme = "light" | "dark";
+const readTheme = (): ConsoleTheme => {
+  try { return localStorage.getItem("wordtime_theme") === "dark" ? "dark" : "light"; } catch { return "light"; }
+};
+export function applyConsoleTheme(t: ConsoleTheme) {
+  if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+  else document.documentElement.removeAttribute("data-theme");
+  try { localStorage.setItem("wordtime_theme", t); } catch { /* приватный режим */ }
+}
+
 /* ── пункт меню ── */
 function SideItem({ g, route, collapsed, onNav }: { g: NavGroup; route: string; collapsed: boolean; onNav: (r: string) => void }) {
   const leafs = g.children ?? [{ label: g.label, route: g.route! }];
-  const activeGroup = leafs.some(l => route === l.route || (l.route.startsWith("post") && route.startsWith("post")) || (l.route.startsWith("settings") && route.startsWith("settings")));
+  const activeGroup = leafs.some(l => route === l.route || (l.route.startsWith("post") && route.startsWith("post")) || (l.route.startsWith("settings") && route.startsWith("settings")) || (l.route.startsWith("perf") && route.startsWith("perf")));
   const [open, setOpen] = useState(activeGroup);
   useEffect(() => { if (activeGroup) setOpen(true); }, [activeGroup]);
 
@@ -56,13 +67,13 @@ function SideItem({ g, route, collapsed, onNav }: { g: NavGroup; route: string; 
         onClick={() => { if (!g.children) onNav(g.route!); else { setOpen(o => !o); onNav(leafs[0].route); } }}
         title={collapsed ? g.label : undefined}
         className={`w-full flex items-center gap-3 px-3.5 h-10.5 text-[13.5px] font-semibold transition-all cursor-pointer
-          ${activeGroup ? "text-white bg-ink-700/60" : "text-[#a8c3c9] hover:text-white hover:bg-ink-800/70 hover:translate-x-0.5"}`}
+          ${activeGroup ? "text-white bg-deep-line/50" : "text-[#a8c3c9] hover:text-white hover:bg-deep-line/40 hover:translate-x-0.5"}`}
       >
         <span className={`shrink-0 transition-colors ${activeGroup ? "text-teal-brand" : ""}`}><I n={g.icon} size={19} /></span>
         {!collapsed && <span className="flex-1 text-left truncate">{g.label}</span>}
         {!collapsed && g.children && <I n="chevD" size={13} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />}
         {collapsed && (
-          <span className="hidden group-hover/si:flex absolute left-full top-0 ml-2 z-50 items-center bg-ink-800 text-white text-[12.5px] font-bold px-3 h-10.5 rounded-lg shadow-pop whitespace-nowrap pointer-events-none">
+          <span className="hidden group-hover/si:flex absolute left-full top-0 ml-2 z-50 items-center bg-deep-line text-white text-[12.5px] font-bold px-3 h-10.5 rounded-lg shadow-pop whitespace-nowrap pointer-events-none">
             {g.label}
           </span>
         )}
@@ -71,11 +82,11 @@ function SideItem({ g, route, collapsed, onNav }: { g: NavGroup; route: string; 
       {!collapsed && g.children && (
         <div className={`grid transition-all duration-300 ease-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
           <div className="overflow-hidden">
-            <div className="py-1.5 pl-[26px] border-l border-ink-700/60 ml-[26px] space-y-0.5">
+            <div className="py-1.5 pl-[26px] border-l border-deep-line/60 ml-[26px] space-y-0.5">
               {leafs.map(l => (
                 <button key={l.route + l.label} onClick={() => onNav(l.route)}
                   className={`block w-full text-left px-3 py-1.5 rounded-md text-[13px] transition-all cursor-pointer
-                    ${route === l.route ? "text-amber-brand font-bold bg-ink-800/80" : "text-[#8fb0b7] hover:text-white hover:translate-x-1"}`}>
+                    ${route === l.route ? "text-amber-brand font-bold bg-deep-line/60" : "text-[#8fb0b7] hover:text-white hover:translate-x-1"}`}>
                   {l.label}
                 </button>
               ))}
@@ -94,10 +105,22 @@ export default function Shell({ children, route, onNav }: { children: React.Reac
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
   const [createMenu, setCreateMenu] = useState(false);
+  const [theme, setTheme] = useState<ConsoleTheme>(readTheme);
   const menuRef = useRef<HTMLDivElement>(null);
   const createRef = useRef<HTMLDivElement>(null);
 
   const pendingComments = state.comments.filter(c => c.status === "pending").length;
+
+  useEffect(() => { applyConsoleTheme(theme); }, []); // синхронизация при входе в консоль
+
+  const toggleTheme = () => {
+    setTheme(t => {
+      const next: ConsoleTheme = t === "dark" ? "light" : "dark";
+      applyConsoleTheme(next);
+      toast("info", next === "dark" ? "Тёмная тема включена" : "Светлая тема включена", "Выбор сохранён для этого браузера.");
+      return next;
+    });
+  };
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -111,8 +134,8 @@ export default function Shell({ children, route, onNav }: { children: React.Reac
   useEffect(() => setMobileOpen(false), [route]);
 
   const sidebar = (
-    <div className={`h-full flex flex-col bg-ink-900 dark-scroll transition-all duration-300 ${collapsed ? "w-[62px]" : "w-[232px]"}`}>
-      <div className={`flex items-center gap-2.5 h-[52px] px-4 border-b border-ink-800 ${collapsed ? "justify-center px-0" : ""}`}>
+    <div className={`h-full flex flex-col bg-deep-2 dark-scroll transition-all duration-300 ${collapsed ? "w-[62px]" : "w-[232px]"}`}>
+      <div className={`flex items-center gap-2.5 h-[52px] px-4 border-b border-deep-line/70 ${collapsed ? "justify-center px-0" : ""}`}>
         <WTMark size={30} />
         {!collapsed && (
           <div className="leading-none">
@@ -125,7 +148,7 @@ export default function Shell({ children, route, onNav }: { children: React.Reac
         {NAV.map(g => <SideItem key={g.label} g={g} route={route} collapsed={collapsed} onNav={onNav} />)}
       </nav>
       <button onClick={() => setCollapsed(c => !c)}
-        className="flex items-center gap-3 px-4 h-11 border-t border-ink-800 text-[#8fb0b7] hover:text-white hover:bg-ink-800/70 transition-colors text-[12.5px] font-bold cursor-pointer">
+        className="flex items-center gap-3 px-4 h-11 border-t border-deep-line/70 text-[#8fb0b7] hover:text-white hover:bg-deep-line/40 transition-colors text-[12.5px] font-bold cursor-pointer">
         <I n={collapsed ? "expand" : "collapse"} size={17} />
         {!collapsed && "Свернуть меню"}
       </button>
@@ -135,31 +158,36 @@ export default function Shell({ children, route, onNav }: { children: React.Reac
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* ── верхняя админ-панель ── */}
-      <header className="h-[46px] shrink-0 bg-ink-950 text-[#c3d6da] flex items-center gap-1 px-3 z-40 shadow-[0_2px_10px_rgba(7,27,33,0.3)]">
+      <header className="h-[46px] shrink-0 bg-deep text-[#c3d6da] flex items-center gap-1 px-3 z-40 shadow-[0_2px_10px_rgba(7,27,33,0.3)]">
         <button className="md:hidden w-9 h-9 grid place-items-center hover:text-white cursor-pointer" onClick={() => setMobileOpen(true)}><I n="menu" size={20} /></button>
-        <button onClick={() => onNav("dashboard")} className="flex items-center gap-2 px-2 h-9 rounded-lg hover:bg-ink-800 hover:text-white transition-colors cursor-pointer">
+        <button onClick={() => onNav("dashboard")} className="flex items-center gap-2 px-2 h-9 rounded-lg hover:bg-deep-line/60 hover:text-white transition-colors cursor-pointer">
           <WTMark size={22} /><span className="font-display font-bold text-[13px] text-white hidden sm:inline">Wordtime</span>
         </button>
-        <button onClick={() => setSiteOpen(true)} className="flex items-center gap-2 px-3 h-9 rounded-lg hover:bg-ink-800 hover:text-white transition-colors text-[13px] font-semibold cursor-pointer">
+        <button onClick={() => setSiteOpen(true)} className="flex items-center gap-2 px-3 h-9 rounded-lg hover:bg-deep-line/60 hover:text-white transition-colors text-[13px] font-semibold cursor-pointer">
           <I n="home" size={16} /><span className="hidden lg:inline">{state.settings.siteTitle}</span>
         </button>
-        <button onClick={() => onNav("comments")} className="relative flex items-center gap-2 px-3 h-9 rounded-lg hover:bg-ink-800 hover:text-white transition-colors text-[13px] font-semibold cursor-pointer">
+        <button onClick={() => onNav("comments")} className="relative flex items-center gap-2 px-3 h-9 rounded-lg hover:bg-deep-line/60 hover:text-white transition-colors text-[13px] font-semibold cursor-pointer">
           <I n="comment" size={16} />
           <span className="hidden lg:inline">Комментарии</span>
-          {pendingComments > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-brand text-ink-950 text-[10.5px] font-extrabold grid place-items-center">{pendingComments}</span>}
+          {pendingComments > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-brand text-deep text-[10.5px] font-extrabold grid place-items-center">{pendingComments}</span>}
         </button>
 
         <div className="flex-1" />
 
+        <button onClick={toggleTheme} title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
+          className="w-9 h-9 grid place-items-center rounded-lg hover:bg-deep-line/60 hover:text-amber-brand transition-colors cursor-pointer">
+          <span key={theme} className="anim-theme-pop grid place-items-center"><I n={theme === "dark" ? "sun" : "moon"} size={17} /></span>
+        </button>
+
         <button onClick={clearCache} title="Очистить кеш сайта"
-          className="flex items-center gap-2 px-3 h-9 rounded-lg hover:bg-ink-800 hover:text-teal-brand transition-colors text-[12.5px] font-bold cursor-pointer">
+          className="flex items-center gap-2 px-3 h-9 rounded-lg hover:bg-deep-line/60 hover:text-teal-brand transition-colors text-[12.5px] font-bold cursor-pointer">
           <I n="zap" size={15} />
           <span className="hidden xl:inline tabular">Кеш {fmtKB(state.cache.sizeKB)}</span>
           <span className="xl:hidden tabular">{fmtKB(state.cache.sizeKB)}</span>
         </button>
 
         <div className="relative" ref={createRef}>
-          <button onClick={() => setCreateMenu(v => !v)} className="flex items-center gap-1.5 px-3 h-9 rounded-lg hover:bg-ink-800 hover:text-white transition-colors text-[13px] font-bold cursor-pointer">
+          <button onClick={() => setCreateMenu(v => !v)} className="flex items-center gap-1.5 px-3 h-9 rounded-lg hover:bg-deep-line/60 hover:text-white transition-colors text-[13px] font-bold cursor-pointer">
             <I n="plus" size={16} sw={2.2} /> Создать
           </button>
           {createMenu && (
@@ -180,7 +208,7 @@ export default function Shell({ children, route, onNav }: { children: React.Reac
         </div>
 
         <div className="relative" ref={menuRef}>
-          <button onClick={() => setUserMenu(v => !v)} className="flex items-center gap-2.5 pl-1.5 pr-2 h-9 rounded-lg hover:bg-ink-800 transition-colors cursor-pointer">
+          <button onClick={() => setUserMenu(v => !v)} className="flex items-center gap-2.5 pl-1.5 pr-2 h-9 rounded-lg hover:bg-deep-line/60 transition-colors cursor-pointer">
             <span className="w-7 h-7 rounded-full grid place-items-center text-[12px] font-extrabold text-white" style={{ background: authed?.color ?? "#0e9384" }}>
               {(authed?.name ?? "А").slice(0, 1)}
             </span>
@@ -196,6 +224,9 @@ export default function Shell({ children, route, onNav }: { children: React.Reac
               <button onClick={() => { nav("users"); setUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13.5px] font-semibold hover:bg-teal-soft/60 transition-colors cursor-pointer">
                 <I n="users" size={16} className="text-mut" />Мой профиль
               </button>
+              <button onClick={() => { toggleTheme(); setUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13.5px] font-semibold hover:bg-teal-soft/60 transition-colors cursor-pointer">
+                <I n={theme === "dark" ? "sun" : "moon"} size={16} className="text-mut" />{theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+              </button>
               <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13.5px] font-semibold text-danger hover:bg-danger/8 transition-colors cursor-pointer">
                 <I n="logout" size={16} />Выйти
               </button>
@@ -209,11 +240,11 @@ export default function Shell({ children, route, onNav }: { children: React.Reac
         <aside className="hidden md:block shrink-0">{sidebar}</aside>
         {mobileOpen && (
           <div className="fixed inset-0 z-50 md:hidden">
-            <div className="absolute inset-0 bg-ink-950/70 anim-fade" onClick={() => setMobileOpen(false)} />
+            <div className="absolute inset-0 bg-deep/70 anim-fade" onClick={() => setMobileOpen(false)} />
             <div className="absolute left-0 top-0 bottom-0 anim-fade-up">{sidebar}</div>
           </div>
         )}
-        <main className="flex-1 min-w-0 overflow-y-auto bg-paper">
+        <main className="flex-1 min-w-0 overflow-y-auto bg-canvas">
           <div className="px-4 md:px-7 py-6 max-w-[1240px] mx-auto">
             <p className="text-[11.5px] font-bold tracking-[0.16em] uppercase text-mut/80 mb-1">Wordtime · {routeTitle(route)}</p>
             {children}

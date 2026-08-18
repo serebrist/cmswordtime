@@ -41,7 +41,7 @@ export function PostsList() {
         {([["all", "Все"], ["published", "Опубликованные"], ["draft", "Черновики"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setFilter(k)}
             className={`px-3.5 h-8.5 rounded-lg text-[13px] font-bold transition-all cursor-pointer border
-              ${filter === k ? "bg-ink-900 text-white border-ink-900" : "bg-card text-mut border-line hover:border-ink-600/40 hover:text-ink-900"}`}>
+              ${filter === k ? "bg-deep-2 text-white border-deep-2" : "bg-card text-mut border-line hover:border-ink-600/40 hover:text-ink-900"}`}>
             {l} <span className="opacity-60 tabular">· {counts[k]}</span>
           </button>
         ))}
@@ -52,7 +52,7 @@ export function PostsList() {
       </div>
 
       {selected.length > 0 && (
-        <div className="mb-3 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-ink-900 text-paper anim-fade">
+        <div className="mb-3 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-deep-2 text-paper anim-fade">
           <span className="text-[13px] font-bold">Выбрано: {selected.length}</span>
           <button onClick={() => remove(selected)} className="ml-auto flex items-center gap-1.5 text-[13px] font-bold text-amber-brand hover:text-white transition-colors cursor-pointer">
             <I n="trash" size={14} />Удалить
@@ -67,7 +67,7 @@ export function PostsList() {
         ) : (
           <table className="w-full text-[13.5px]">
             <thead>
-              <tr className="text-left text-[11.5px] uppercase tracking-[0.1em] text-mut border-b border-line bg-paper/60">
+              <tr className="text-left text-[11.5px] uppercase tracking-[0.1em] text-mut border-b border-line bg-canvas/60">
                 <th className="w-10 px-4 py-3"><input type="checkbox" checked={selected.length === list.length && list.length > 0} onChange={() => setSelected(selected.length === list.length ? [] : list.map(p => p.id))} /></th>
                 <th className="px-2 py-3 font-extrabold">Запись</th>
                 <th className="px-2 py-3 font-extrabold hidden md:table-cell">Автор</th>
@@ -171,11 +171,11 @@ export function PostEditor({ postId }: { postId?: string }) {
             className="w-full px-6 pt-6 pb-3 font-display font-bold text-[22px] text-ink-900 outline-none placeholder:text-mut/50 bg-transparent" />
           <div className="flex items-center gap-1 px-4 pb-3 border-b border-line">
             {[["B", "font-bold"], ["I", "italic"], ["U", "underline"], ["S", "line-through"]].map(([t, cls]) => (
-              <button key={t} className={`w-8 h-8 grid place-items-center rounded-md text-[13px] ${cls} text-ink-700 hover:bg-paper transition-colors cursor-pointer`}>{t}</button>
+              <button key={t} className={`w-8 h-8 grid place-items-center rounded-md text-[13px] ${cls} text-ink-700 hover:bg-canvas transition-colors cursor-pointer`}>{t}</button>
             ))}
             <span className="w-px h-5 bg-line mx-1.5" />
             {[["H2", "font-display text-[11px] font-extrabold"], ["❝", "text-[15px]"], ["•≡", "text-[15px] tracking-tighter"]].map(([t, cls], i) => (
-              <button key={i} className={`w-8 h-8 grid place-items-center rounded-md ${cls} text-ink-700 hover:bg-paper transition-colors cursor-pointer`}>{t}</button>
+              <button key={i} className={`w-8 h-8 grid place-items-center rounded-md ${cls} text-ink-700 hover:bg-canvas transition-colors cursor-pointer`}>{t}</button>
             ))}
             <span className="ml-auto text-[12px] text-mut tabular">{words} {plural(words, "слово", "слова", "слов")}</span>
           </div>
@@ -217,7 +217,7 @@ export function PostEditor({ postId }: { postId?: string }) {
             {image ? (
               <div className="relative rounded-lg overflow-hidden group">
                 <SmartImg src={image} alt="Обложка" className="w-full h-28 object-cover" />
-                <button onClick={() => setImage(undefined)} className="absolute inset-0 bg-ink-950/60 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center text-white text-[12.5px] font-bold cursor-pointer">Убрать обложку</button>
+                <button onClick={() => setImage(undefined)} className="absolute inset-0 bg-deep/60 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center text-white text-[12.5px] font-bold cursor-pointer">Убрать обложку</button>
               </div>
             ) : (
               <button onClick={() => setPickerOpen(true)} className="w-full h-28 rounded-lg border-2 border-dashed border-line hover:border-teal-deep/50 text-mut hover:text-teal-deep transition-colors grid place-items-center cursor-pointer">

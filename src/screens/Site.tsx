@@ -16,7 +16,7 @@ export default function SitePreview() {
   const postComments = (id: string) => state.comments.filter(c => c.postId === id && c.status === "approved");
 
   return (
-    <div className="fixed inset-0 z-[70] bg-paper overflow-y-auto anim-fade">
+    <div className="theme-force-light fixed inset-0 z-[70] bg-paper overflow-y-auto anim-fade">
       {/* плавающая кнопка возврата в консоль */}
       <button onClick={() => setSiteOpen(false)}
         className="fixed bottom-6 right-6 z-20 flex items-center gap-2.5 h-12 px-5 rounded-full bg-ink-950 text-white shadow-pop hover:bg-ink-800 transition-all hover:-translate-y-0.5 cursor-pointer">

@@ -22,7 +22,7 @@ export default function Settings({ tab, onTab }: { tab: string; onTab: (t: strin
           {TABS.map(t => (
             <button key={t.key} onClick={() => onTab(t.key)}
               className={`w-full flex items-center gap-3 px-4 h-11.5 text-[13.5px] font-bold border-b border-line last:border-0 transition-all cursor-pointer
-                ${tab === t.key ? "bg-ink-900 text-white" : "text-ink-800 hover:bg-paper"}`}>
+                ${tab === t.key ? "bg-deep-2 text-white" : "text-ink-800 hover:bg-canvas"}`}>
               <span className={tab === t.key ? "text-teal-brand" : "text-mut"}><I n={t.icon} size={16} /></span>
               <span className="flex-1 text-left">{t.label}</span>
               {tab === t.key && <I n="chevR" size={13} />}
@@ -50,7 +50,7 @@ function Card({ title, desc, children, footer }: { title: string; desc?: string;
         {desc && <p className="text-[13px] text-mut mt-1">{desc}</p>}
       </header>
       <div className="px-6 py-5">{children}</div>
-      {footer && <footer className="px-6 py-4 border-t border-line bg-paper/50">{footer}</footer>}
+      {footer && <footer className="px-6 py-4 border-t border-line bg-canvas/50">{footer}</footer>}
     </section>
   );
 }
@@ -197,7 +197,7 @@ function CacheTab() {
           <Toggle big on={s.cacheEnabled} onChange={v => { patchSettings({ cacheEnabled: v }); toast(v ? "ok" : "warn", v ? "Кеш включён" : "Кеш отключён"); }} />
         </div>
 
-        <div className="relative overflow-hidden rounded-xl bg-ink-900 text-paper p-6 grain">
+        <div className="relative overflow-hidden rounded-xl bg-deep-2 text-paper p-6 grain">
           <div className="absolute inset-0 blueprint opacity-60" />
           {sweeping && <span className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-teal-brand/25 to-transparent" style={{ animation: "wt-sweep 0.9s ease both" }} />}
           <div className="relative flex flex-wrap items-center gap-6">
@@ -205,7 +205,7 @@ function CacheTab() {
               <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-teal-brand">Занято в кеше</p>
               <p className="font-display font-extrabold text-[34px] tabular leading-tight mt-1">{sweeping ? "0 КБ" : fmtKB(state.cache.sizeKB)}</p>
             </div>
-            <div className="hidden sm:block w-px h-12 bg-ink-700" />
+            <div className="hidden sm:block w-px h-12 bg-deep-line" />
             <div>
               <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-amber-brand">Обслужено запросов</p>
               <p className="font-display font-extrabold text-[22px] tabular leading-tight mt-1.5">{state.cache.hits.toLocaleString("ru-RU")}</p>
@@ -275,7 +275,7 @@ function SecurityTab() {
         <div className="space-y-2.5">
           {s.sessions.map(se => (
             <div key={se.id} className="flex items-center gap-4 p-3.5 rounded-xl border border-line hover:border-ink-600/30 transition-colors">
-              <span className={`w-10 h-10 rounded-lg grid place-items-center shrink-0 ${se.current ? "bg-teal-deep/12 text-teal-deep" : "bg-paper text-mut"}`}><I n="monitor" size={18} /></span>
+              <span className={`w-10 h-10 rounded-lg grid place-items-center shrink-0 ${se.current ? "bg-teal-deep/12 text-teal-deep" : "bg-canvas text-mut"}`}><I n="monitor" size={18} /></span>
               <div className="flex-1 min-w-0">
                 <p className="text-[13.5px] font-bold text-ink-900">{se.device} {se.current && <Badge tone="teal">ТЕКУЩАЯ</Badge>}</p>
                 <p className="text-[12.5px] text-mut">{se.place} · {se.time}</p>
@@ -322,7 +322,7 @@ function BackupsTab() {
     <>
       <Card title="WT-Миграция — резервная копия всего сайта"
         desc="Полный снимок сайта одним файлом .wtm: база, записи, медиафайлы, темы, плагины и настройки. Скачивайте, переносите на другой хостинг, восстанавливайте — как All-in-One WP Migration, только уже в ядре.">
-        <div className="rounded-xl bg-ink-900 text-paper p-6 grain relative overflow-hidden">
+        <div className="rounded-xl bg-deep-2 text-paper p-6 grain relative overflow-hidden">
           <div className="absolute inset-0 blueprint opacity-60" />
           <div className="relative">
             <div className="flex flex-wrap items-center gap-3">
@@ -333,7 +333,7 @@ function BackupsTab() {
               </div>
               <div className="flex gap-2.5">
                 <Btn kind="amber" onClick={() => runBackup("Полная", "Полная копия сайта")} disabled={backupBusy >= 0}><I n="cloud" size={15} />Полная копия</Btn>
-                <Btn kind="dark" className="bg-ink-700! hover:bg-ink-600!" onClick={() => runBackup("База данных", "Только база данных")} disabled={backupBusy >= 0}><I n="database" size={15} />Только база</Btn>
+                <Btn kind="dark" className="bg-deep-line! hover:bg-deep-hi!" onClick={() => runBackup("База данных", "Только база данных")} disabled={backupBusy >= 0}><I n="database" size={15} />Только база</Btn>
               </div>
             </div>
             {backupBusy >= 0 && (
@@ -372,8 +372,8 @@ function BackupsTab() {
           onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)}
           onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) readFile(f); }}
           className={`w-full py-10 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center
-            ${dragOver ? "border-teal-deep bg-teal-soft/60 scale-[1.01]" : "border-line bg-paper/50 hover:border-teal-deep/50 hover:bg-teal-soft/30"}`}>
-          <span className={`mx-auto w-12 h-12 rounded-full grid place-items-center mb-3 transition-colors ${dragOver ? "bg-teal-deep text-white" : "bg-ink-900/6 text-ink-600"}`}><I n="upload" size={22} /></span>
+            ${dragOver ? "border-teal-deep bg-teal-soft/60 scale-[1.01]" : "border-line bg-canvas/50 hover:border-teal-deep/50 hover:bg-teal-soft/30"}`}>
+          <span className={`mx-auto w-12 h-12 rounded-full grid place-items-center mb-3 transition-colors ${dragOver ? "bg-teal-deep text-white" : "bg-deep-2/8 text-mut"}`}><I n="upload" size={22} /></span>
           <p className="text-[14.5px] font-bold text-ink-900">{dragOver ? "Отпустите файл — начнём восстановление" : "Выберите файл или перетащите его сюда"}</p>
           <p className="text-[12.5px] text-mut mt-1.5">Поддерживаются <b>.wtm</b> (Wordtime) и <b>.wpress</b> (All-in-One WP Migration — сконвертируем автоматически)</p>
         </button>
@@ -435,7 +435,7 @@ function LoginTab() {
               <div className="grid grid-cols-3 gap-2.5">
                 {([["gradient", "Градиент"], ["solid", "Цвет"], ["image", "Изображение"]] as const).map(([k, l]) => (
                   <button key={k} onClick={() => patchLoginCustom({ mode: k })}
-                    className={`h-10 rounded-lg border text-[13px] font-bold transition-all cursor-pointer ${L.mode === k ? "border-ink-900 bg-ink-900 text-white" : "border-line bg-card text-mut hover:border-ink-600/40"}`}>{l}</button>
+                    className={`h-10 rounded-lg border text-[13px] font-bold transition-all cursor-pointer ${L.mode === k ? "border-deep-2 bg-deep-2 text-white" : "border-line bg-card text-mut hover:border-ink-600/40"}`}>{l}</button>
                 ))}
               </div>
               {L.mode === "image" && (

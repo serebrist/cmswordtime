@@ -124,6 +124,8 @@ const P: Record<string, React.ReactNode> = {
   code: <path d="m8.5 8-4 4 4 4M15.5 8l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />,
   file: <><path d="M13.5 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8.5z" strokeLinejoin="round" /><path d="M13.5 3.5v5h5" strokeLinejoin="round" /><path d="M9 13h6M9 16.5h4" strokeLinecap="round" opacity="0.6" /></>,
   pulse: <path d="M3.5 12h4l2.5-6 4 12 2.5-6h4" strokeLinecap="round" strokeLinejoin="round" />,
+  sun: <><circle cx="12" cy="12" r="4.2" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7" strokeLinecap="round" /></>,
+  moon: <path d="M19.5 14.2A8 8 0 0 1 9.8 4.5a8 8 0 1 0 9.7 9.7z" strokeLinejoin="round" />,
 };
 
 export type IconName = keyof typeof P;

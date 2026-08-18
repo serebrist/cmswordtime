@@ -45,7 +45,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* ── приветствие ── */}
       {!s.welcomeDismissed && (
-        <section className="relative overflow-hidden rounded-2xl bg-ink-900 text-paper grain anim-fade-up">
+        <section className="relative overflow-hidden rounded-2xl bg-deep-2 text-paper grain anim-fade-up">
           <div className="absolute inset-0 blueprint" />
           <div className="absolute -right-20 -top-24 w-72 h-72 rounded-full bg-teal-brand/20 blur-3xl" />
           <div className="relative p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-6">
@@ -59,8 +59,8 @@ export default function Dashboard() {
               </p>
               <div className="mt-5 flex flex-wrap gap-2.5">
                 <Btn kind="amber" size="md" onClick={() => openPost()}><I n="plus" size={15} sw={2.4} />Написать запись</Btn>
-                <Btn kind="dark" className="bg-ink-700! hover:bg-ink-600!" onClick={() => nav("settings:backups")}><I n="cloud" size={15} />Создать копию сайта</Btn>
-                <Btn kind="ghost" className="text-paper/80! hover:bg-ink-800!" onClick={() => nav("plugins-new")}>Каталог плагинов →</Btn>
+                <Btn kind="dark" className="bg-deep-line! hover:bg-deep-hi!" onClick={() => nav("settings:backups")}><I n="cloud" size={15} />Создать копию сайта</Btn>
+                <Btn kind="ghost" className="text-paper/80! hover:bg-deep-line/50!" onClick={() => nav("plugins-new")}>Каталог плагинов →</Btn>
               </div>
             </div>
             <div className="hidden md:block shrink-0">
@@ -75,7 +75,7 @@ export default function Dashboard() {
             </div>
           </div>
           <button onClick={() => mutate(st => { st.welcomeDismissed = true; })}
-            className="absolute top-4 right-4 w-8 h-8 grid place-items-center rounded-lg text-paper/50 hover:text-white hover:bg-ink-800 transition-colors cursor-pointer" title="Скрыть приветствие">
+            className="absolute top-4 right-4 w-8 h-8 grid place-items-center rounded-lg text-paper/50 hover:text-white hover:bg-deep-line/60 transition-colors cursor-pointer" title="Скрыть приветствие">
             <I n="x" size={15} />
           </button>
         </section>
@@ -148,7 +148,7 @@ export default function Dashboard() {
           {/* ── быстрый черновик ── */}
           <Panel title="Быстрый черновик" icon="edit">
             <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={4} placeholder="О чём хотите написать?"
-              className="w-full px-3.5 py-3 rounded-lg border border-line bg-paper/60 text-[14px] outline-none focus:border-teal-deep focus:ring-[3px] focus:ring-teal-deep/15 transition-all resize-none" />
+              className="w-full px-3.5 py-3 rounded-lg border border-line bg-canvas/60 text-[14px] outline-none focus:border-teal-deep focus:ring-[3px] focus:ring-teal-deep/15 transition-all resize-none" />
             <div className="mt-3 flex items-center justify-between">
               <span className="text-[12px] text-mut">{draft.length} символов</span>
               <Btn size="sm" onClick={saveDraft}>Сохранить черновик</Btn>

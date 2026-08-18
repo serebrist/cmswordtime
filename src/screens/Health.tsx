@@ -52,7 +52,7 @@ function TreeNode({ node, depth = 0 }: { node: Node; depth?: number }) {
       <button
         onClick={() => isFolder && setOpen(o => !o)}
         className={`w-full flex items-center gap-2 py-[7px] pr-3 rounded-lg text-left transition-all group
-          ${isFolder ? "cursor-pointer hover:bg-paper" : "cursor-default"}
+          ${isFolder ? "cursor-pointer hover:bg-canvas" : "cursor-default"}
           ${node.hl ? "bg-teal-soft/70" : ""}`}
         style={{ paddingLeft: 10 + depth * 20 }}
       >
@@ -120,7 +120,7 @@ export default function HealthScreen() {
       </div>
 
       {/* сводка */}
-      <div className="relative overflow-hidden rounded-2xl bg-ink-900 text-paper p-6 mb-6 grain">
+      <div className="relative overflow-hidden rounded-2xl bg-deep-2 text-paper p-6 mb-6 grain">
         <div className="absolute inset-0 blueprint opacity-60" />
         <div className="relative flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-4">
@@ -130,12 +130,12 @@ export default function HealthScreen() {
               <p className="text-[13px] text-paper/60 mt-0.5">{okCount} из {CHECKS.length} проверок пройдено · 1 рекомендация</p>
             </div>
           </div>
-          <div className="hidden sm:block w-px h-12 bg-ink-700" />
+          <div className="hidden sm:block w-px h-12 bg-deep-line" />
           <div className="flex-1 min-w-[220px]">
             <p className="text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-teal-brand mb-2">{checking ? step || "Запуск…" : "Wordtime работает на том же стеке, что и WordPress"}</p>
             <div className="flex flex-wrap gap-2">
               {["PHP 8.3", "MariaDB 10.11", "Apache / nginx", "WT-Core 1.0.4"].map(t => (
-                <span key={t} className="px-2.5 py-1 rounded-md bg-ink-800 border border-ink-700 text-[12px] font-bold tabular">{t}</span>
+                <span key={t} className="px-2.5 py-1 rounded-md bg-deep-line/60 border border-deep-line text-[12px] font-bold tabular">{t}</span>
               ))}
             </div>
           </div>
@@ -151,7 +151,7 @@ export default function HealthScreen() {
           </header>
           <ul className="divide-y divide-line">
             {CHECKS.map((c, i) => (
-              <li key={c.label} className={`px-6 py-3.5 flex items-center gap-3.5 transition-colors hover:bg-paper/70 ${checking ? "anim-row-scan" : ""}`} style={checking ? { animationDelay: `${i * 0.12}s` } : undefined}>
+              <li key={c.label} className={`px-6 py-3.5 flex items-center gap-3.5 transition-colors hover:bg-canvas/70 ${checking ? "anim-row-scan" : ""}`} style={checking ? { animationDelay: `${i * 0.12}s` } : undefined}>
                 <span className={`w-9 h-9 rounded-lg grid place-items-center shrink-0 ${c.status === "ok" ? "bg-ok/10 text-ok" : "bg-warn/10 text-warn"}`}><I n={c.icon} size={17} /></span>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13.5px] font-bold text-ink-900">{c.label} <span className="font-semibold text-mut ml-1.5 tabular">{c.value}</span></p>
@@ -174,7 +174,7 @@ export default function HealthScreen() {
           <div className="p-3 font-mono">
             {TREE.map((n, i) => <TreeNode key={i} node={n} />)}
           </div>
-          <footer className="px-6 py-3.5 border-t border-line bg-paper/50 text-[12px] text-mut flex items-center gap-2">
+          <footer className="px-6 py-3.5 border-t border-line bg-canvas/50 text-[12px] text-mut flex items-center gap-2">
             <I n="info" size={14} /> Подсвечены ключевые точки совместимости с WordPress.
           </footer>
         </section>
@@ -194,7 +194,7 @@ export default function HealthScreen() {
               { icon: "shield" as IconName, t: "Слой wt-compat", d: "Функции wp_* автоматически картируются на wt_*: старый код запускается без правок." },
             ].map(f => (
               <div key={f.t} className="flex gap-3.5 group">
-                <span className="w-10 h-10 rounded-xl bg-ink-900 text-teal-brand grid place-items-center shrink-0 group-hover:scale-110 group-hover:bg-teal-deep group-hover:text-white transition-all duration-200"><I n={f.icon} size={18} /></span>
+                <span className="w-10 h-10 rounded-xl bg-deep-2 text-teal-brand grid place-items-center shrink-0 group-hover:scale-110 group-hover:bg-teal-deep group-hover:text-white transition-all duration-200"><I n={f.icon} size={18} /></span>
                 <div>
                   <p className="text-[13.5px] font-bold text-ink-900">{f.t}</p>
                   <p className="text-[12.5px] text-mut mt-1 leading-relaxed">{f.d}</p>
@@ -205,8 +205,8 @@ export default function HealthScreen() {
         </section>
 
         {/* сниппет */}
-        <section className="rounded-xl overflow-hidden border border-ink-700 bg-ink-950 text-paper shadow-panel flex flex-col">
-          <div className="flex items-center gap-2 px-4 h-10 bg-ink-900 border-b border-ink-700">
+        <section className="rounded-xl overflow-hidden border border-deep-line bg-deep text-paper shadow-panel flex flex-col">
+          <div className="flex items-center gap-2 px-4 h-10 bg-deep-2 border-b border-deep-line">
             <span className="w-2.5 h-2.5 rounded-full bg-danger/70" /><span className="w-2.5 h-2.5 rounded-full bg-warn/70" /><span className="w-2.5 h-2.5 rounded-full bg-ok/70" />
             <span className="ml-2 text-[11.5px] font-bold text-paper/50 font-mono">wt-content/plugins/moy-plugin/plugin.php</span>
           </div>
@@ -221,7 +221,7 @@ export default function HealthScreen() {
               {"}"});
             </code>
           </pre>
-          <div className="px-5 py-3 border-t border-ink-700 text-[11.5px] text-paper/50 flex items-center gap-2">
+          <div className="px-5 py-3 border-t border-deep-line text-[11.5px] text-paper/50 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-teal-brand" style={{ animation: "wt-pulse-dot 1.6s infinite" }} />
             Слои wt-includes/plugin.php и wt-compat/ перехватывают вызовы автоматически.
           </div>

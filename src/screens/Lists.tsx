@@ -92,7 +92,7 @@ export function CommentsScreen() {
         {([["all", "Все"], ["pending", "Ожидают"], ["approved", "Одобренные"], ["spam", "Спам"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setFilter(k)}
             className={`px-3.5 h-8.5 rounded-lg text-[13px] font-bold transition-all cursor-pointer border
-              ${filter === k ? "bg-ink-900 text-white border-ink-900" : "bg-card text-mut border-line hover:border-ink-600/40 hover:text-ink-900"}`}>
+              ${filter === k ? "bg-deep-2 text-white border-deep-2" : "bg-card text-mut border-line hover:border-ink-600/40 hover:text-ink-900"}`}>
             {l} <span className="opacity-60 tabular">· {counts[k]}</span>
           </button>
         ))}
@@ -197,7 +197,7 @@ export function MediaScreen() {
               : <div className="w-full h-52 rounded-lg grid place-items-center text-white" style={{ background: `linear-gradient(135deg, hsl(${item.hue ?? 190} 45% 32%), hsl(${(item.hue ?? 190) + 50} 55% 46%))` }}><I n="image" size={34} /></div>}
             <dl className="mt-4 grid grid-cols-2 gap-3 text-[13px]">
               {[["Имя файла", item.name], ["Размер", item.size], ["Размеры", item.dims], ["Загружен", ruDate(item.date)]].map(([k, v]) => (
-                <div key={k} className="bg-paper rounded-lg px-3.5 py-2.5"><dt className="text-[11.5px] font-extrabold uppercase tracking-wide text-mut">{k}</dt><dd className="font-bold text-ink-900 mt-0.5 break-all">{v}</dd></div>
+                <div key={k} className="bg-canvas rounded-lg px-3.5 py-2.5"><dt className="text-[11.5px] font-extrabold uppercase tracking-wide text-mut">{k}</dt><dd className="font-bold text-ink-900 mt-0.5 break-all">{v}</dd></div>
               ))}
             </dl>
             <div className="mt-4 flex gap-2.5">
@@ -350,12 +350,12 @@ export function ThemeEditorScreen() {
       <div className="grid lg:grid-cols-[220px_1fr] gap-5 items-start">
         <div className="bg-card border border-line rounded-xl shadow-panel overflow-hidden">
           {files.map(f => (
-            <button key={f} onClick={() => setFile(f)} className={`w-full text-left px-4 py-3 text-[13px] font-bold border-b border-line last:border-0 transition-colors cursor-pointer ${file === f ? "bg-ink-900 text-teal-brand" : "text-ink-800 hover:bg-paper"}`}>
+            <button key={f} onClick={() => setFile(f)} className={`w-full text-left px-4 py-3 text-[13px] font-bold border-b border-line last:border-0 transition-colors cursor-pointer ${file === f ? "bg-deep-2 text-teal-brand" : "text-ink-800 hover:bg-canvas"}`}>
               {f}
             </button>
           ))}
         </div>
-        <div className="bg-ink-950 rounded-xl overflow-hidden shadow-panel">
+        <div className="bg-deep rounded-xl overflow-hidden shadow-panel">
           <div className="flex items-center justify-between px-4 h-10 border-b border-ink-800">
             <span className="text-[12.5px] font-bold text-paper/70">{file}</span>
             <span className="flex gap-1.5">{["#ff6159", "#ffbd2e", "#28c840"].map(c => <span key={c} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />)}</span>

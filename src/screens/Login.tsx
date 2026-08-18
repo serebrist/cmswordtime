@@ -125,7 +125,7 @@ export default function Login() {
   const attemptsLeft = pending ? 5 - pending.attempts : 5;
 
   return (
-    <div className="min-h-screen flex bg-ink-950 text-paper">
+    <div className="theme-force-light min-h-screen flex bg-ink-950 text-paper">
       {email && <EmailNotifier msg={email} />}
 
       {/* ── брендовая панель ── */}

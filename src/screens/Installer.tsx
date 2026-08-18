@@ -95,7 +95,7 @@ export default function Installer({ onDone }: { onDone: () => void }) {
   const cur = Math.min(step, 4);
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-ink-950 text-paper grain flex items-center justify-center p-4 py-8">
+    <div className="theme-force-dark min-h-screen relative overflow-hidden bg-ink-950 text-paper grain flex items-center justify-center p-4 py-8">
       <div className="absolute inset-0 blueprint opacity-70" />
       <div className="absolute -top-40 -left-40 w-[560px] h-[560px] rounded-full" style={{ background: "radial-gradient(circle, rgba(14,147,132,0.22), transparent 65%)" }} />
       <div className="absolute -bottom-48 -right-32 w-[600px] h-[600px] rounded-full" style={{ background: "radial-gradient(circle, rgba(217,148,23,0.13), transparent 65%)" }} />

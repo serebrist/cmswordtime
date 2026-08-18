@@ -59,7 +59,7 @@ export function PluginsScreen({ initialTab }: { initialTab?: "installed" | "cata
         {([["installed", `Установленные · ${installed.length}`], ["catalog", "Добавить новый"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-4 h-9 rounded-lg text-[13px] font-bold transition-all cursor-pointer border
-              ${tab === k ? "bg-ink-900 text-white border-ink-900" : "bg-card text-mut border-line hover:border-ink-600/40 hover:text-ink-900"}`}>{l}</button>
+              ${tab === k ? "bg-deep-2 text-white border-deep-2" : "bg-card text-mut border-line hover:border-ink-600/40 hover:text-ink-900"}`}>{l}</button>
         ))}
       </div>
 

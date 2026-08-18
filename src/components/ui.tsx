@@ -13,12 +13,12 @@ export function Btn({ kind = "primary", size = "md", className = "", children, .
   const base = "inline-flex items-center justify-center gap-2 font-semibold rounded-lg transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none select-none cursor-pointer";
   const sizes = { sm: "text-[12.5px] px-3 h-8", md: "text-[13.5px] px-4 h-10", lg: "text-[15px] px-6 h-12" }[size];
   const kinds = {
-    primary: "bg-teal-deep text-white hover:bg-ink-700 shadow-[0_2px_8px_-2px_rgba(14,147,132,0.5)]",
+    primary: "bg-teal-deep text-white hover:brightness-110 shadow-[0_2px_8px_-2px_rgba(14,147,132,0.5)]",
     ghost: "text-ink-700 hover:bg-ink-900/8",
     outline: "border border-line bg-card text-ink-800 hover:border-teal-deep/50 hover:text-teal-deep",
     danger: "bg-danger text-white hover:bg-[#b91c1c]",
-    amber: "bg-amber-brand text-ink-950 hover:bg-amber-deep hover:text-white",
-    dark: "bg-ink-900 text-teal-soft hover:bg-ink-800",
+    amber: "bg-amber-brand text-deep hover:bg-amber-deep hover:text-white",
+    dark: "bg-deep-2 text-teal-brand hover:bg-deep-line",
   }[kind];
   return <button className={`${base} ${sizes} ${kinds} ${className}`} {...rest}>{children}</button>;
 }
@@ -99,11 +99,11 @@ export function Modal({ open, onClose, title, children, width = 520 }: { open: b
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center p-4">
-      <div className="absolute inset-0 bg-ink-950/60 anim-fade" onClick={onClose} />
+      <div className="absolute inset-0 bg-deep/70 anim-fade" onClick={onClose} />
       <div className="relative bg-card rounded-2xl shadow-pop anim-scale-in w-full max-h-[86vh] overflow-auto" style={{ maxWidth: width }}>
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-line sticky top-0 bg-card z-10">
           <h3 className="font-display font-bold text-[16px] text-ink-900">{title}</h3>
-          <button onClick={onClose} className="w-8 h-8 grid place-items-center rounded-lg text-mut hover:bg-paper hover:text-ink-900 transition-colors cursor-pointer"><I n="x" size={16} /></button>
+          <button onClick={onClose} className="w-8 h-8 grid place-items-center rounded-lg text-mut hover:bg-canvas hover:text-ink-900 transition-colors cursor-pointer"><I n="x" size={16} /></button>
         </div>
         <div className="px-6 py-5">{children}</div>
       </div>
@@ -144,7 +144,7 @@ export function Badge({ children, tone = "mut" }: { children: React.ReactNode; t
 export function Empty({ icon, title, text }: { icon: Parameters<typeof I>[0]["n"]; title: string; text?: string }) {
   return (
     <div className="py-16 text-center anim-fade">
-      <div className="w-14 h-14 mx-auto rounded-2xl bg-ink-900/6 text-ink-600 grid place-items-center"><I n={icon} size={26} /></div>
+      <div className="w-14 h-14 mx-auto rounded-2xl bg-deep-2/8 text-mut grid place-items-center"><I n={icon} size={26} /></div>
       <p className="mt-4 font-display font-bold text-[15px] text-ink-900">{title}</p>
       {text && <p className="mt-1.5 text-[13px] text-mut max-w-sm mx-auto">{text}</p>}
     </div>
@@ -169,9 +169,9 @@ export function EmailNotifier({ msg, onCopy }: { msg: EmailMsg; onCopy?: () => v
 
   return (
     <div ref={ref} className={`fixed top-4 right-4 z-[95] w-[min(380px,calc(100vw-32px))] transition-all duration-500 ${visible ? "translate-x-0 opacity-100" : "translate-x-24 opacity-0"}`}>
-      <div className="bg-ink-900 text-paper rounded-2xl shadow-pop overflow-hidden border border-ink-700">
-        <div className="flex items-center gap-3 px-4 py-3 bg-ink-800/70">
-          <span className="w-8 h-8 rounded-lg bg-amber-brand text-ink-950 grid place-items-center"><I n="mail" size={16} sw={2} /></span>
+      <div className="bg-deep-2 text-paper rounded-2xl shadow-pop overflow-hidden border border-deep-line">
+        <div className="flex items-center gap-3 px-4 py-3 bg-deep/70">
+          <span className="w-8 h-8 rounded-lg bg-amber-brand text-deep grid place-items-center"><I n="mail" size={16} sw={2} /></span>
           <div className="min-w-0 flex-1">
             <p className="text-[12px] font-bold text-amber-brand tracking-wide uppercase">Новое письмо</p>
             <p className="text-[12px] text-paper/60 truncate">Wordtime &lt;no-reply@wordtime.ru&gt; → {msg.to}</p>
@@ -182,10 +182,10 @@ export function EmailNotifier({ msg, onCopy }: { msg: EmailMsg; onCopy?: () => v
           <p className="text-[14px] font-bold">{msg.subject}</p>
           <p className="text-[12.5px] text-paper/65 mt-1">Здравствуйте! Чтобы подтвердить вход в консоль, введите этот код. Он действует 5 минут.</p>
           <div className="mt-3 flex items-center gap-3">
-            <div className="flex-1 bg-ink-950/70 border border-dashed border-teal-brand/40 rounded-xl py-3 text-center">
+            <div className="flex-1 bg-deep/70 border border-dashed border-teal-brand/40 rounded-xl py-3 text-center">
               <span className="font-display text-[26px] font-bold tracking-[0.35em] text-teal-brand tabular">{msg.code}</span>
             </div>
-            <button onClick={copy} className="shrink-0 h-12 px-4 rounded-xl border border-ink-600 text-paper/80 hover:text-teal-brand hover:border-teal-brand/50 transition-colors grid place-items-center cursor-pointer" title="Скопировать код">
+            <button onClick={copy} className="shrink-0 h-12 px-4 rounded-xl border border-deep-line text-paper/80 hover:text-teal-brand hover:border-teal-brand/50 transition-colors grid place-items-center cursor-pointer" title="Скопировать код">
               <I n={copied ? "check" : "copy"} size={18} sw={2} />
             </button>
           </div>
@@ -203,7 +203,7 @@ export function SmartImg({ src, alt, className = "" }: { src: string; alt: strin
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
-      <div className={`${className} grid place-items-center text-white/70 bg-ink-800`}>
+      <div className={`${className} grid place-items-center text-white/70 bg-deep-2`}>
         <I n="image" size={24} />
       </div>
     );
