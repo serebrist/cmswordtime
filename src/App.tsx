@@ -12,6 +12,7 @@ import SitePreview from "./screens/Site";
 import HealthScreen from "./screens/Health";
 import Installer from "./screens/Installer";
 import Perf from "./screens/Perf";
+import Deploy from "./screens/Deploy";
 
 function Screen() {
   const { route, nav, siteOpen } = useStore();
@@ -34,6 +35,7 @@ function Screen() {
     case route === "user-new": screen = <UsersScreen autoAdd />; break;
     case route === "updates": screen = <UpdatesScreen />; break;
     case route === "health": screen = <HealthScreen />; break;
+    case route === "deploy": screen = <Deploy key="deploy" />; break;
     case route.startsWith("perf"): {
       const tab = route.split(":")[1] ?? "speed";
       const valid = ["speed", "images", "sitemap", "seo", "api"].includes(tab) ? tab : "speed";

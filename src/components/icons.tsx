@@ -126,6 +126,10 @@ const P: Record<string, React.ReactNode> = {
   pulse: <path d="M3.5 12h4l2.5-6 4 12 2.5-6h4" strokeLinecap="round" strokeLinejoin="round" />,
   sun: <><circle cx="12" cy="12" r="4.2" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7" strokeLinecap="round" /></>,
   moon: <path d="M19.5 14.2A8 8 0 0 1 9.8 4.5a8 8 0 1 0 9.7 9.7z" strokeLinejoin="round" />,
+  server: <><rect x="3.5" y="4" width="17" height="7" rx="1.5" /><rect x="3.5" y="13" width="17" height="7" rx="1.5" /><path d="M7 7.5h.01M7 16.5h.01" strokeLinecap="round" strokeWidth="2.4" /><path d="M13.5 7.5h3.5M13.5 16.5h3.5" strokeLinecap="round" opacity="0.6" /></>,
+  terminal: <><rect x="3" y="4.5" width="18" height="15" rx="2" /><path d="m7 9.5 3 2.8-3 2.8M12.5 15.5H17" strokeLinecap="round" strokeLinejoin="round" /></>,
+  package: <><path d="M12 3.5 20 7.5v9l-8 4-8-4v-9z" strokeLinejoin="round" /><path d="M4.3 7.7 12 11.5l7.7-3.8M12 11.5v8.6" strokeLinejoin="round" /><path d="M8 5.5l8 4" strokeLinecap="round" opacity="0.55" /></>,
+  key: <><circle cx="8" cy="14.5" r="4" /><path d="m11 11.5 8-8M16.5 6l2.5 2.5M14 8.5l2 2" strokeLinecap="round" /></>,
 };
 
 export type IconName = keyof typeof P;

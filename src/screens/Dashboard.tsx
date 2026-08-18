@@ -60,6 +60,7 @@ export default function Dashboard() {
               <div className="mt-5 flex flex-wrap gap-2.5">
                 <Btn kind="amber" size="md" onClick={() => openPost()}><I n="plus" size={15} sw={2.4} />Написать запись</Btn>
                 <Btn kind="dark" className="bg-deep-line! hover:bg-deep-hi!" onClick={() => nav("settings:backups")}><I n="cloud" size={15} />Создать копию сайта</Btn>
+                <Btn kind="dark" className="bg-deep-line! hover:bg-deep-hi!" onClick={() => nav("deploy")}><I n="server" size={15} />Установить на хостинг</Btn>
                 <Btn kind="ghost" className="text-paper/80! hover:bg-deep-line/50!" onClick={() => nav("plugins-new")}>Каталог плагинов →</Btn>
               </div>
             </div>
