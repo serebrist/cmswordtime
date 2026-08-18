@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ToastHost } from "./components/ui";
 import { StoreProvider, useStore } from "./lib/store";
 import Login from "./screens/Login";
@@ -13,6 +13,7 @@ import HealthScreen from "./screens/Health";
 import Installer from "./screens/Installer";
 import Perf from "./screens/Perf";
 import Deploy from "./screens/Deploy";
+import DownloadPage from "./screens/DownloadPage";
 
 function Screen() {
   const { route, nav, siteOpen } = useStore();
@@ -62,6 +63,17 @@ function Screen() {
 function Root() {
   const { authed } = useStore();
   const [installed, setInstalled] = useState(() => localStorage.getItem("wordtime_installed_v1") === "1");
+
+  /* публичная страница скачивания Wordtime_cms.zip — работает на любом хостинге */
+  const isDownload = () => location.hash.includes("download") || location.pathname.includes("download");
+  const [dl, setDl] = useState(isDownload);
+  useEffect(() => {
+    const h = () => setDl(location.hash.includes("download"));
+    window.addEventListener("hashchange", h);
+    if (location.pathname.includes("download")) history.replaceState(null, "", location.pathname.replace(/download(\.html)?/i, "") + "#/download");
+    return () => window.removeEventListener("hashchange", h);
+  }, []);
+  if (dl) return <DownloadPage onBack={() => { location.hash = ""; setDl(false); }} />;
   if (!installed) {
     return (
       <>

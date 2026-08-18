@@ -110,9 +110,9 @@ export default function Deploy() {
           <Btn kind="amber" size="lg" onClick={() => { downloadBlob(buildDeployZip(), "Wordtime_cms.zip"); toast("ok", "Архив скачан", `Wordtime_cms.zip · ${fmtBytes(zipSize)} · распакуйте в корень сайта`); }}>
             <I n="download" size={16} />Скачать Wordtime_cms.zip
           </Btn>
-          <a href="download.html" target="_blank" rel="noreferrer"
+          <a href="#/download" target="_blank" rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-teal-deep hover:underline underline-offset-4">
-            <I n="external" size={13} />Прямая ссылка на скачивание — download.html
+            <I n="external" size={13} />Прямая ссылка на скачивание — {location.pathname}#/download
           </a>
         </div>          <p className="text-[11.5px] text-mut mt-2 tabular">собирается в браузере · {fmtBytes(zipSize)} · ядро всегда актуальной версии</p>
         </div>
