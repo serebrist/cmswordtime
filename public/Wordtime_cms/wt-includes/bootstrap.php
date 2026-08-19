@@ -993,6 +993,82 @@ function wt_rcopy($src, $dst) {
         is_dir($s) ? wt_rcopy($s, $d) : @copy($s, $d);
     }
 }
+/** Установка плагина/темы из загруженного ZIP-архива WordPress —
+ *  аналог «Загрузить плагин/тему» в самой WordPress:
+ *  распаковка, поиск главного файла, проверка структуры.           */
+function wt_install_zip_upload($field, $kind) {
+    if (empty($_FILES[$field]) || $_FILES[$field]['error'] !== UPLOAD_ERR_OK) return array(false, 'Файл не получен или ошибка загрузки.', '');
+    $f = $_FILES[$field];
+    if (strtolower(pathinfo($f['name'], PATHINFO_EXTENSION)) !== 'zip') return array(false, 'Нужен ZIP-архив (.zip) — стандартная упаковка WordPress.', '');
+    if ($f['size'] > 64 * 1024 * 1024) return array(false, 'Архив больше 64 МБ.', '');
+    if (!class_exists('ZipArchive')) return array(false, 'На хостинге нет расширения zip — включите его в панели (PHP-расширения).', '');
+    $zip = new ZipArchive();
+    if ($zip->open($f['tmp_name']) !== true) return array(false, 'Архив повреждён или защищён паролем.', '');
+    $tmp = WT_DATA . '/unpack-up-' . md5(uniqid('', true));
+    @mkdir($tmp, 0755, true);
+    /* Распаковка файл за файлом с санацией путей (защита от ../ и абсолютных путей) */
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $en = $zip->getNameIndex($i);
+        if ($en === false) continue;
+        $en = str_replace('\\', '/', $en);
+        if ($en === '' || $en[0] === '/') continue;
+        $segs = array(); $bad = false;
+        foreach (explode('/', $en) as $seg) {
+            if ($seg === '' || $seg === '.') continue;
+            if ($seg === '..') { $bad = true; break; }
+            $segs[] = $seg;
+        }
+        if ($bad || count($segs) === 0) continue;
+        $dst = $tmp . '/' . implode('/', $segs);
+        if (substr($en, -1) === '/') { @mkdir($dst, 0755, true); continue; }
+        @mkdir(dirname($dst), 0755, true);
+        $data = $zip->getFromIndex($i);
+        if ($data === false) continue;
+        @file_put_contents($dst, $data);
+    }
+    $zip->close();
+    /* Корень пакета: единственная папка верхнего уровня (как пакует WordPress) */
+    $entries = array_values(array_diff((array)@scandir($tmp), array('.', '..')));
+    if (count($entries) === 0) { wt_rrmdir($tmp); return array(false, 'Архив пуст.', ''); }
+    $src = (count($entries) === 1 && is_dir($tmp . '/' . $entries[0])) ? $tmp . '/' . $entries[0] : $tmp;
+    $name = basename($src) !== basename($tmp) ? basename($src) : preg_replace('/\.zip$/i', '', pathinfo($f['name'], PATHINFO_FILENAME));
+    $name = preg_replace('/[^a-z0-9._-]/i', '-', $name);
+    $destParent = WT_ROOT . '/wt-content/' . ($kind === 'plugins' ? 'plugins' : 'themes');
+    $dest = $destParent . '/' . $name;
+    if (is_dir($dest)) { wt_rrmdir($tmp); return array(false, '«' . esc($name) . '» уже установлен.', $name); }
+
+    if ($kind === 'plugins') {
+        /* главный файл плагина — первый .php с заголовком «Plugin Name:» (правило WordPress) */
+        $main = '';
+        $scan = function ($dir) use (&$scan, &$main) {
+            foreach ((array)@scandir($dir) as $ff) {
+                if ($ff === '.' || $ff === '..' || $main !== '') continue;
+                $p = $dir . '/' . $ff;
+                if (is_dir($p)) { $scan($p); continue; }
+                if (strtolower(pathinfo($ff, PATHINFO_EXTENSION)) !== 'php') continue;
+                $head = (string)file_get_contents($p, false, null, 0, 2048);
+                if (stripos($head, 'Plugin Name:') !== false || stripos($head, 'plugin name:') !== false) $main = $p;
+            }
+        };
+        $scan($src);
+        $anyPhp = count((array)@glob($src . '/*.php')) > 0 || $main !== '';
+        if (!$anyPhp) { wt_rrmdir($tmp); return array(false, 'В архиве нет PHP-файлов — это не пакет плагина WordPress.', ''); }
+        if (!@rename($src, $dest)) wt_rcopy($src, $dest);
+        wt_rrmdir($tmp);
+        $mainRel = $main !== '' ? $name . '/' . str_replace('\\', '/', substr($main, strlen($src) + 1)) : '';
+        wt_log('Плагин «' . $name . '» установлен из ZIP-архива' . ($mainRel !== '' ? ' (главный файл: ' . $mainRel . ')' : ''));
+        wt_cache_flush();
+        return array(true, $name, $mainRel);
+    }
+
+    /* тема: обязателен style.css, желателен заголовок «Theme Name:» */
+    if (!is_file($src . '/style.css')) { wt_rrmdir($tmp); return array(false, 'В корне архива нет style.css — это не тема WordPress.', ''); }
+    if (!@rename($src, $dest)) wt_rcopy($src, $dest);
+    wt_rrmdir($tmp);
+    wt_log('Тема «' . $name . '» установлена из ZIP-архива');
+    wt_cache_flush();
+    return array(true, $name, '');
+}
 
 /* ── Обновление схемы (мягкое, при каждом запуске) ────────────────── */
 function wt_upgrade() {
