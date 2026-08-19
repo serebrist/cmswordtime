@@ -62,7 +62,29 @@ a { color: var(--teal); }
 .btn { display: inline-flex; align-items: center; gap: 8px; font: 600 14px var(--body); padding: 0 18px; height: 41px; border-radius: 10px; border: 0; background: var(--teal); color: #fff; cursor: pointer; margin-top: 12px; transition: .15s; }
 .btn:hover { background: #0b7a6e; }
 
+/* запись + сайдбар с виджетами */
+.post-cols { display: grid; grid-template-columns: 1fr 270px; gap: 34px; margin-top: 12px; }
+.post-side .widget { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+.widget-title { font-family: var(--disp); font-weight: 700; font-size: 13.5px; margin: 0 0 10px; }
+.widget-list { margin: 0; padding-left: 0; list-style: none; }
+.widget-list li { padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13.5px; }
+.widget-list li:last-child { border-bottom: 0; }
+.widget-list a { color: var(--txt); text-decoration: none; font-weight: 500; }
+.widget-list a:hover { color: var(--teal); }
+.widget-text p { font-size: 13.5px; color: var(--mut); margin: 4px 0; }
+.widget-search { display: flex; gap: 6px; }
+.widget-search input { flex: 1; border: 1px solid #cfdde0; border-radius: 8px; padding: 8px 11px; font-size: 13.5px; outline: none; }
+.widget-search button { border: 0; background: var(--teal); color: #fff; border-radius: 8px; width: 38px; cursor: pointer; }
+
 /* подвал */
-.ftr { background: var(--deep); color: #9fc0c5; padding: 26px 0; font-size: 13.5px; margin-top: 30px; }
+.ftr { background: var(--deep); color: #9fc0c5; padding: 30px 0 22px; font-size: 13.5px; margin-top: 44px; }
 .ftr a { color: #7fd6c8; }
+.ftr-cols { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 28px; }
+.ftr .widget { margin-bottom: 10px; }
+.ftr .widget-title { color: #fff; font-size: 13px; }
+.ftr .widget-list li { border-color: #174753; }
+.ftr .widget-list a { color: #a9cbd2; }
+.ftr .widget-list a:hover { color: #fff; }
+.ftr .widget-text p { color: #8fb4ba; }
+@media (max-width: 900px) { .post-cols { grid-template-columns: 1fr; } .ftr-cols { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .hdr-in { flex-wrap: wrap; height: auto; padding: 12px 0; gap: 12px; } .srch { margin-left: 0; width: 100%; } .srch input { width: 100%; } .cmrow { grid-template-columns: 1fr; } }

@@ -342,11 +342,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $act !== '') {
             $title = trim(strip_tags($_POST['title']));
             if ($title === '') { $_SESSION['wt_flash'] = array('err', 'Заголовок не может быть пустым.'); wt_redirect_to('posts'); }
             $slug = trim((string)$_POST['slug']) !== '' ? wt_slugify($_POST['slug']) : wt_slugify($title);
-            $data = array($title, $slug, wt_kses($_POST['content']), (string)$_POST['category'], trim(strip_tags($_POST['tags'])), $_POST['status'], trim((string)$_POST['image']));
-            if ($id > 0) { $st = wt_db()->prepare('UPDATE ' . wt_t('posts') . ' SET post_title=?, slug=?, post_content=?, category=?, tags=?, post_status=?, post_image=? WHERE id=?'); $data[] = $id; $st->execute($data); wt_log('Запись #' . $id . ' обновлена'); }
-            else { $st = wt_db()->prepare('INSERT INTO ' . wt_t('posts') . ' (post_title, slug, post_content, category, tags, post_status, post_image, post_author) VALUES (?,?,?,?,?,?,?,?)'); $data[] = $user['user_login']; $st->execute($data); wt_log('Создана запись «' . $title . '»'); }
+            /* Настройки публикации, как в WordPress: статус, видимость, пароль, дата */
+            $status = $_POST['status'];
+            $visibility = in_array($_POST['visibility'], array('public', 'password', 'private'), true) ? $_POST['visibility'] : 'public';
+            $password = $visibility === 'password' ? trim((string)$_POST['post_password']) : '';
+            $date = trim((string)$_POST['post_date']);
+            $dateSql = ($date !== '' && strtotime($date)) ? date('Y-m-d H:i:s', strtotime($date)) : date('Y-m-d H:i:s');
+            $data = array($title, $slug, wt_kses($_POST['content']), (string)$_POST['category'], trim(strip_tags($_POST['tags'])), $status, trim((string)$_POST['image']), $password, $visibility, $dateSql);
+            if ($id > 0) { $st = wt_db()->prepare('UPDATE ' . wt_t('posts') . ' SET post_title=?, slug=?, post_content=?, category=?, tags=?, post_status=?, post_image=?, post_password=?, visibility=?, post_date=? WHERE id=?'); $data[] = $id; $st->execute($data); wt_log('Запись #' . $id . ' обновлена'); }
+            else { $st = wt_db()->prepare('INSERT INTO ' . wt_t('posts') . ' (post_title, slug, post_content, category, tags, post_status, post_image, post_password, visibility, post_date, post_author) VALUES (?,?,?,?,?,?,?,?,?,?,?)'); $data[] = $user['user_login']; $st->execute($data); wt_log('Создана запись «' . $title . '»'); }
             wt_cache_flush();
-            $_SESSION['wt_flash'] = array('ok', 'Запись сохранена.'); wt_redirect_to('posts');
+            $msg = 'Запись сохранена.';
+            if ($status === 'draft') $msg = 'Черновик сохранён.';
+            elseif (strtotime($dateSql) > time()) $msg = 'Запись запланирована к публикации: ' . date('d.m.Y H:i', strtotime($dateSql)) . '.';
+            $_SESSION['wt_flash'] = array('ok', $msg); wt_redirect_to('posts');
         }
         case 'post-delete': {
             $id = (int)$_POST['id'];
@@ -651,6 +660,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $act !== '') {
             $_SESSION['wt_flash'] = array('ok', 'Проверка завершена: установлена последняя версия Wordtime ' . WT_VERSION . '.');
             wt_redirect_to('updates');
         }
+        /* ── Медиафайлы: метаданные (как в медиатеке WordPress) ── */
+        case 'media-meta-save': {
+            $file = (string)$_POST['file'];
+            wt_media_meta($file, array(
+                'title' => trim(strip_tags((string)$_POST['mtitle'])),
+                'alt' => trim(strip_tags((string)$_POST['malt'])),
+                'caption' => trim(strip_tags((string)$_POST['mcaption'])),
+            ));
+            wt_cache_flush();
+            $_SESSION['wt_flash'] = array('ok', 'Данные файла сохранены.'); wt_redirect_to('media');
+        }
+        /* ── Виджеты ── */
+        case 'widget-add': {
+            $sb = (string)$_POST['sidebar'];
+            $type = (string)$_POST['type'];
+            $cls = isset($_POST['wpclass']) ? (string)$_POST['wpclass'] : '';
+            $items = wt_widgets_of($sb);
+            $names = wt_widget_types();
+            $title = isset($names[$type]) ? $names[$type][0] : 'Виджет';
+            $item = array('type' => $type, 'title' => $title, 'text' => '', 'count' => 5);
+            if ($type === 'wpclass') { $item['class'] = $cls; $item['title'] = $cls; }
+            $items[] = $item;
+            wt_widgets_save($sb, $items);
+            wt_log('Виджет «' . $title . '» добавлен в область ' . $sb);
+            $_SESSION['wt_flash'] = array('ok', 'Виджет добавлен — настройте его ниже.'); wt_redirect_to('widgets');
+        }
+        case 'widget-save': {
+            $sb = (string)$_POST['sidebar'];
+            $types = isset($_POST['w_type']) ? (array)$_POST['w_type'] : array();
+            $titles = isset($_POST['w_title']) ? (array)$_POST['w_title'] : array();
+            $texts = isset($_POST['w_text']) ? (array)$_POST['w_text'] : array();
+            $counts = isset($_POST['w_count']) ? (array)$_POST['w_count'] : array();
+            $classes = isset($_POST['w_class']) ? (array)$_POST['w_class'] : array();
+            $items = array();
+            foreach ($types as $i => $t) {
+                $items[] = array(
+                    'type' => preg_replace('/[^a-z]/', '', (string)$t),
+                    'title' => trim(strip_tags(isset($titles[$i]) ? (string)$titles[$i] : '')),
+                    'text' => isset($texts[$i]) ? (string)$texts[$i] : '',
+                    'count' => max(1, (int)(isset($counts[$i]) ? $counts[$i] : 5)),
+                    'class' => isset($classes[$i]) ? preg_replace('/[^a-zA-Z0-9_\\\\]/', '', (string)$classes[$i]) : '',
+                );
+            }
+            /* удаление виджета идёт этой же формой (вложенные form запрещены в HTML) */
+            if (isset($_POST['delete_idx']) && isset($items[(int)$_POST['delete_idx']])) {
+                wt_log('Виджет «' . $items[(int)$_POST['delete_idx']]['title'] . '» удалён из ' . $sb);
+                unset($items[(int)$_POST['delete_idx']]);
+                $items = array_values($items);
+            }
+            wt_widgets_save($sb, $items);
+            wt_log('Виджеты области ' . $sb . ' сохранены (' . count($items) . ' шт.)');
+            $_SESSION['wt_flash'] = array('ok', 'Виджеты сохранены.'); wt_redirect_to('widgets');
+        }
+        case 'widget-delete': {
+            $sb = (string)$_POST['sidebar']; $idx = (int)$_POST['idx'];
+            $items = wt_widgets_of($sb);
+            if (isset($items[$idx])) { wt_log('Виджет «' . $items[$idx]['title'] . '» удалён из ' . $sb); unset($items[$idx]); wt_widgets_save($sb, array_values($items)); }
+            $_SESSION['wt_flash'] = array('ok', 'Виджет удалён.'); wt_redirect_to('widgets');
+        }
+        case 'widget-move': {
+            $sb = (string)$_POST['sidebar']; $idx = (int)$_POST['idx']; $dir = (int)$_POST['dir'];
+            $items = wt_widgets_of($sb); $j = $idx + $dir;
+            if (isset($items[$idx]) && isset($items[$j])) { $t = $items[$idx]; $items[$idx] = $items[$j]; $items[$j] = $t; wt_widgets_save($sb, $items); }
+            wt_redirect_to('widgets');
+        }
+        /* ── Установка плагинов и тем из каталога WordPress.org ── */
+        case 'plugin-wp-install': {
+            $url = (string)$_POST['download_link'];
+            list($okk, $res) = wt_install_wp_zip($url, 'plugins');
+            if ($okk && isset($_POST['activate'])) {
+                $active = wt_option('active_plugins', array()); if (!is_array($active)) $active = array();
+                $main = '';
+                foreach ((array)@glob(WT_ROOT . '/wt-content/plugins/' . $res . '/*.php') as $f) { $main = basename($f); break; }
+                $active[] = $main !== '' ? $res . '/' . $main : $res . '.php';
+                wt_set_option('active_plugins', $active);
+                $_SESSION['wt_flash'] = array('ok', 'Плагин «' . esc($res) . '» установлен и активирован.');
+            } else {
+                $_SESSION['wt_flash'] = $okk ? array('ok', 'Плагин «' . esc($res) . '» установлен — активируйте его в списке.') : array('err', $res);
+            }
+            wt_redirect_to('plugin-new');
+        }
+        case 'theme-wp-install': {
+            $url = (string)$_POST['download_link'];
+            list($okk, $res) = wt_install_wp_zip($url, 'themes');
+            if ($okk && isset($_POST['activate'])) {
+                wt_set_option('active_theme', $res); wt_cache_flush();
+                $_SESSION['wt_flash'] = array('ok', 'Тема «' . esc($res) . '» установлена и активирована.');
+            } else {
+                $_SESSION['wt_flash'] = $okk ? array('ok', 'Тема «' . esc($res) . '» установлена — активируйте её в разделе Темы.') : array('err', $res);
+            }
+            wt_redirect_to('theme-new');
+        }
+        /* ── Постоянные ссылки ── */
+        case 'permalink-save': {
+            $v = (string)$_POST['structure'];
+            if ($v === 'custom') $v = trim((string)$_POST['custom_structure']);
+            $allowed = array('', '/%postname%/', '/%year%/%monthnum%/%postname%/', '/%category%/%postname%/');
+            if (!in_array($v, $allowed, true) && !(strpos($v, '%postname%') !== false && $v !== '')) $v = '';
+            if ($v !== '' && $v[0] !== '/') $v = '/' . $v;
+            wt_set_option('permalink_structure', $v);
+            wt_cache_flush(); wt_log('Структура постоянных ссылок: ' . ($v === '' ? 'обычная (?p=…)' : $v));
+            $_SESSION['wt_flash'] = array('ok', 'Постоянные ссылки сохранены.' . ($v !== '' ? ' Красивые ЧПУ требуют nginx-wordtime.conf или mod_rewrite (есть в дистрибутиве).' : ''));
+            wt_redirect_to('settings&tab=permalinks');
+        }
     }
 }
 
@@ -691,7 +804,8 @@ function wt_shell($pageKey, $title, $sub) {
         ),
         'ДИЗАЙН' => array(
             array('k' => 'themes', 'l' => 'Внешний вид', 'i' => 'palette', 'fly' => array(
-                array('t' => 'themes', 'l' => 'Темы'), array('t' => 'menus', 'l' => 'Меню'), array('t' => 'theme-editor', 'l' => 'Редактор тем'))),
+                array('t' => 'themes', 'l' => 'Темы'), array('t' => 'theme-new', 'l' => 'Добавить новую'),
+                array('t' => 'menus', 'l' => 'Меню'), array('t' => 'widgets', 'l' => 'Виджеты'), array('t' => 'theme-editor', 'l' => 'Редактор тем'))),
             array('k' => 'plugins', 'l' => 'Плагины', 'i' => 'plug', 'fly' => array(array('t' => 'plugins', 'l' => 'Установленные'), array('t' => 'plugin-new', 'l' => 'Добавить новый'))),
         ),
         'СИСТЕМА' => array(
@@ -704,7 +818,8 @@ function wt_shell($pageKey, $title, $sub) {
                 array('t' => 'sitemap', 'l' => 'Sitemap'), array('t' => 'seo', 'l' => 'SEO-заголовки'), array('t' => 'api', 'l' => 'Мобильные приложения и API'))),
             array('k' => 'settings', 'l' => 'Настройки', 'i' => 'gear', 'fly' => array(
                 array('t' => 'settings', 'l' => 'Общие'), array('t' => 'settings&tab=comments', 'l' => 'Обсуждение'),
-                array('t' => 'settings&tab=cache', 'l' => 'Кеш и скорость'), array('t' => 'settings&tab=security', 'l' => 'Безопасность и 2FA'),
+                array('t' => 'settings&tab=cache', 'l' => 'Кеш и скорость'), array('t' => 'settings&tab=permalinks', 'l' => 'Постоянные ссылки'),
+                array('t' => 'settings&tab=security', 'l' => 'Безопасность и 2FA'),
                 array('t' => 'settings&tab=backups', 'l' => 'Резервные копии'), array('t' => 'settings&tab=login', 'l' => 'Страница входа'))),
             array('k' => 'hosting', 'l' => 'Установка на хостинг', 'i' => 'globe'),
             array('k' => 'health', 'l' => 'Здоровье системы', 'i' => 'pulse'),
@@ -779,7 +894,9 @@ switch ($page) {
     case 'profile': wt_screen_profile(); break;
     case 'themes': wt_screen_themes(); break;
     case 'menus': wt_screen_menus(); break;
+    case 'widgets': wt_screen_widgets(); break;
     case 'theme-editor': wt_screen_theme_editor(); break;
+    case 'theme-new': wt_screen_theme_new(); break;
     case 'plugins': wt_screen_plugins(); break;
     case 'plugin-new': wt_screen_plugin_new(); break;
     case 'categories': wt_screen_categories(); break;

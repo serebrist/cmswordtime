@@ -91,7 +91,8 @@ const MANIFEST: { path: string; note: string }[] = [
   { path: "Wordtime_cms/index.php", note: "Фронт-контроллер: сайт, REST API, ?admin=1" },
   { path: "Wordtime_cms/install.php", note: "Веб-установщик · самоблокируется после установки" },
   { path: "Wordtime_cms/wt-config-sample.php", note: "Образец конфигурации" },
-  { path: "Wordtime_cms/wt-includes/bootstrap.php", note: "Ядро: PDO, хуки, 2FA, кеш, SQL-парсер, REST" },
+  { path: "Wordtime_cms/wt-includes/bootstrap.php", note: "Ядро: PDO, хуки, 2FA, кеш, ЧПУ, виджеты, REST" },
+  { path: "Wordtime_cms/wt-includes/wp-compat.php", note: "Слой совместимости WordPress API (add_action, get_option, WP_Widget…)" },
   { path: "Wordtime_cms/wt-admin/index.php", note: "Консоль: вход с 2FA, каркас, действия" },
   { path: "Wordtime_cms/wt-admin/screens.php", note: "26 разделов консоли" },
   { path: "Wordtime_cms/wt-content/themes/wordtime-twenty/index.php", note: "Тема: шапка c site_menu, авто-SEO" },
@@ -318,14 +319,14 @@ const MENU: { sec: string; items: MItem[] }[] = [
     { k: "comments", l: "Комментарии", i: "comment", cnt: "2" },
   ] },
   { sec: "ДИЗАЙН", items: [
-    { k: "themes", l: "Внешний вид", i: "palette", fly: [{ t: "themes", l: "Темы" }, { t: "menus", l: "Меню" }, { t: "theme-editor", l: "Редактор тем" }] },
+    { k: "themes", l: "Внешний вид", i: "palette", fly: [{ t: "themes", l: "Темы" }, { t: "theme-new", l: "Добавить новую" }, { t: "menus", l: "Меню" }, { t: "widgets", l: "Виджеты" }, { t: "theme-editor", l: "Редактор тем" }] },
     { k: "plugins", l: "Плагины", i: "plug", fly: [{ t: "plugins", l: "Установленные" }, { t: "plugin-new", l: "Добавить новый" }] },
   ] },
   { sec: "СИСТЕМА", items: [
     { k: "users", l: "Пользователи", i: "users", fly: [{ t: "users", l: "Все пользователи" }, { t: "users&new=1", l: "Добавить нового" }, { t: "profile", l: "Ваш профиль" }] },
     { k: "import", l: "Инструменты", i: "wrench", fly: [{ t: "import", l: "Импорт" }, { t: "export", l: "Экспорт" }, { t: "migration", l: "Миграция сайта" }] },
     { k: "perf", l: "Оптимизация", i: "zap", fly: [{ t: "perf", l: "Скорость и кеш" }, { t: "images", l: "Изображения" }, { t: "sitemap", l: "Sitemap" }, { t: "seo", l: "SEO-заголовки" }, { t: "api", l: "Мобильные приложения и API" }] },
-    { k: "settings", l: "Настройки", i: "gear", fly: [{ t: "settings", l: "Общие" }, { t: "settings&tab=comments", l: "Обсуждение" }, { t: "settings&tab=cache", l: "Кеш и скорость" }, { t: "settings&tab=security", l: "Безопасность и 2FA" }, { t: "settings&tab=backups", l: "Резервные копии" }, { t: "settings&tab=login", l: "Страница входа" }] },
+    { k: "settings", l: "Настройки", i: "gear", fly: [{ t: "settings", l: "Общие" }, { t: "settings&tab=comments", l: "Обсуждение" }, { t: "settings&tab=cache", l: "Кеш и скорость" }, { t: "settings&tab=permalinks", l: "Постоянные ссылки" }, { t: "settings&tab=security", l: "Безопасность и 2FA" }, { t: "settings&tab=backups", l: "Резервные копии" }, { t: "settings&tab=login", l: "Страница входа" }] },
     { k: "hosting", l: "Установка на хостинг", i: "globe" },
     { k: "health", l: "Здоровье системы", i: "pulse" },
   ] },
@@ -337,6 +338,8 @@ const TITLES: Record<string, [string, string]> = {
   comments: ["Комментарии", "Модерация: одобрение, спам, удаление"],
   media: ["Медиафайлы", "Библиотека с GD-оптимизацией при загрузке"],
   themes: ["Темы", "Оформление сайта — активная тема применяется мгновенно"],
+  "theme-new": ["Добавить тему", "Каталог тем WordPress.org — установка и активация, как в WordPress"],
+  widgets: ["Виджеты", "Области темы — сайдбар и подвал: добавление, настройка, порядок"],
   menus: ["Меню", "Пункты навигации в шапке сайта — порядок и состав"],
   "theme-editor": ["Редактор тем", "Файлы активной темы — правки применяются сразу"],
   plugins: ["Плагины", "Расширения ядра через хуки wt_add_action / wt_add_filter"],
@@ -368,7 +371,17 @@ type Store = {
   titleTpl: string; descTpl: string;
   backups: { name: string; size: number; date: string; kind: string }[];
   log: string[];
+  widgetAreas: { id: string; name: string; items: { type: string; title: string; text: string }[] }[];
+  media: { id: number; name: string; grad: string }[];
 };
+
+const DEMO_MEDIA: { id: number; name: string; grad: string }[] = [
+  { id: 1, name: "server-room.jpg", grad: "linear-gradient(140deg,#0d3039,#14b8a6 130%)" },
+  { id: 2, name: "keyboard-code.jpg", grad: "linear-gradient(140deg,#071b21,#f0b429 150%)" },
+  { id: 3, name: "ink-teal.jpg", grad: "linear-gradient(140deg,#134450,#2dd4bf 140%)" },
+  { id: 4, name: "diagram.png", grad: "linear-gradient(140deg,#0c2e36,#3d7c8c 150%)" },
+];
+const W_TYPES: Record<string, string> = { text: "Текст", html: "Произвольный HTML", search: "Поиск", recent: "Свежие записи", categories: "Рубрики", menu: "Меню" };
 
 function StatCard({ ic, n, label, bg, fg, delay }: { ic: string; n: number; label: string; bg: string; fg: string; delay: number }) {
   const [v, setV] = useState(0);
@@ -392,6 +405,53 @@ function Screens({ st, set, route, toast }: { st: Store; set: (fn: (s: Store) =>
   const tabM = route.match(/tab=([a-z-]+)/); const tab = tabM ? tabM[1] : "";
   const [editing, setEditing] = useState<PostT | null>(null);
   const [form, setForm] = useState({ title: "", cat: "Новости", text: "" });
+  const [pub, setPub] = useState({ status: "published", visibility: "public", password: "", date: "" });
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [mediaSel, setMediaSel] = useState<number | null>(null);
+  const [perm, setPerm] = useState("");
+  const [wpQuery, setWpQuery] = useState("");
+  const [wpItems, setWpItems] = useState<{ name: string; slug: string; desc: string; meta: string; icon?: string; shot?: string }[] | null>(null);
+  const [wpBusy, setWpBusy] = useState(false);
+  const [wpInstalling, setWpInstalling] = useState<string | null>(null);
+  const [selMedia, setSelMedia] = useState<number | null>(null);
+
+  /* Живой поиск по каталогу WordPress.org (публичное API, CORS разрешён) */
+  const wpSearch = useCallback(async (kind: "plugins" | "themes", q: string) => {
+    setWpBusy(true); setWpItems(null);
+    try {
+      const fields = kind === "plugins" ? "download_link&request[fields][icons]=1&request[fields][active_installs]=1" : "download_link&request[fields][screenshot_url]=1";
+      const r = await fetch(`https://api.wordpress.org/${kind}/info/1.2/?action=${kind === "plugins" ? "query_plugins" : "query_themes"}&request[search]=${encodeURIComponent(q)}&request[per_page]=12&request[fields][${fields}`);
+      const j = await r.json();
+      const raw = (kind === "plugins" ? j.plugins : j.themes) ?? [];
+      setWpItems(raw.map((p: Record<string, unknown>) => ({
+        name: String(p.name ?? "").replace(/<[^>]+>/g, ""),
+        slug: String(p.slug ?? ""),
+        desc: String((p.short_description ?? p.description ?? "") as string).replace(/<[^>]+>/g, "").slice(0, 180),
+        meta: kind === "plugins"
+          ? `${(((p.active_installs ?? 0) as number) >= 1e6 ? (((p.active_installs ?? 0) as number) / 1e6).toFixed(1) + " млн" : Math.round(((p.active_installs ?? 0) as number) / 1e3) + " тыс.")} активных`
+          : `рейтинг ${Math.round(((p.rating ?? 0) as number) / 20)}★`,
+        icon: ((p.icons ?? {}) as Record<string, string>)["1x"] || ((p.icons ?? {}) as Record<string, string>)["default"],
+        shot: p.screenshot_url as string | undefined,
+      })));
+    } catch {
+      /* офлайн-фолбэк, чтобы каталог был виден всегда */
+      setWpItems((kind === "plugins"
+        ? [["Classic Editor", "Возвращает классический редактор записей"], ["WP Super Cache", "Статический кеш страниц для высоких нагрузок"], ["Contact Form 7", "Простые и гибкие контактные формы"], ["Wordfence Security", "Файрвол и сканер безопасности"], ["Yoast SEO", "SEO-оптимизация: заголовки, sitemap, анализ"], ["UpdraftPlus", "Резервные копии по расписанию"]]
+        : [["Astra", "Быстрая и лёгкая тема с готовыми сайтами"], ["OceanWP", "Гибкая тема для магазинов и блогов"], ["Kadence", "Современная блочная тема"], ["Neve", "Минималистичная тема для старта"]]).map(([name, desc]) => ({ name, slug: name.toLowerCase().replace(/\s+/g, "-"), desc, meta: "каталог WP" })));
+      toast("info", "Работаем офлайн", "Показан демо-список каталога");
+    }
+    setWpBusy(false);
+  }, [toast]);
+
+  const wpInstall = (kind: "plugins" | "themes", it: { name: string; slug: string }) => {
+    setWpInstalling(it.slug);
+    setTimeout(() => {
+      if (kind === "plugins") set((s) => ({ ...s, plugins: [{ file: it.slug + ".php", active: false }, ...s.plugins], log: [`Плагин «${it.name}» установлен из каталога WordPress.org`, ...s.log] }));
+      else toast("ok", "Тема установлена", `«${it.name}» появилась в разделе Темы — активируйте её`);
+      setWpInstalling(null);
+      toast("ok", kind === "plugins" ? "Плагин установлен" : "Тема установлена", "Скачивание и распаковка завершены");
+    }, 1200);
+  };
 
   const sqlDump = useMemo(() => {
     let s = `-- Wordtime CMS 1.0.5 — дамп базы (демо)\nSET NAMES utf8mb4;\n\n`;
@@ -418,16 +478,67 @@ function Screens({ st, set, route, toast }: { st: Store; set: (fn: (s: Store) =>
           : { ...s, posts: [{ id: Math.max(0, ...s.posts.map((x) => x.id)) + 1, title: form.title, cat: form.cat, status: "published", date: new Date().toLocaleDateString("ru-RU"), text: form.text }, ...s.posts], log: [`Создана запись «${form.title}»`, ...s.log] });
         toast("ok", "Запись сохранена"); setEditing(null); setForm({ title: "", cat: "Новости", text: "" });
       }}>
+        {/* Медиамодаль — вставка изображения из библиотеки, как в WordPress */}
+        {mediaOpen && (
+          <div className="fixed inset-0 z-[120] bg-deep/70 grid place-items-center p-5" onClick={() => setMediaOpen(false)}>
+            <div className="bg-card border border-line rounded-2xl max-w-[720px] w-full max-h-[82vh] flex flex-col overflow-hidden shadow-pop anim-scale-in" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 px-5 py-3.5 border-b border-line">
+                <h2 className="font-display font-bold text-[15px] text-ink-900 m-0">Медиафайлы</h2>
+                <span className="text-[12.5px] text-mut">выберите изображение для вставки</span>
+                <button className="ml-auto w-8 h-8 grid place-items-center rounded-lg text-mut hover:bg-paper cursor-pointer" onClick={() => setMediaOpen(false)}><I n="x" s={15} /></button>
+              </div>
+              <div className="overflow-y-auto p-5 grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-2.5">
+                {st.media.map((m) => (
+                  <button key={m.id} onClick={() => setMediaSel(m.id)}
+                    className={`h-[86px] rounded-xl overflow-hidden border-2 cursor-pointer transition-all hover:-translate-y-0.5 ${mediaSel === m.id ? "border-teal-deep ring-[3px] ring-teal-deep/20" : "border-line"}`}
+                    style={{ background: m.grad }} title={m.name}>
+                    <span className="w-full h-full grid place-items-center text-white/70"><I n="image" s={22} /></span>
+                  </button>
+                ))}
+              </div>
+              <div className="px-5 py-3 border-t border-line flex gap-2.5 items-center flex-wrap">
+                <span className="text-[12.5px] text-mut flex-1">{mediaSel ? st.media.find((m) => m.id === mediaSel)?.name : "ничего не выбрано"}</span>
+                <Btn kind="ghost" sm type="button" onClick={() => { set((s) => ({ ...s, media: [...s.media, { id: Date.now(), name: `foto-${s.media.length + 1}.jpg`, grad: `linear-gradient(140deg,#0d3039,#14b8a6 ${120 + s.media.length * 10}%)` }] })); toast("ok", "Файл загружен", "Изображение оптимизировано (GD) и добавлено в библиотеку"); }}><I n="dl" s={14} />Загрузить (демо)</Btn>
+                <Btn sm type="button" disabled={!mediaSel} onClick={() => {
+                  const m = st.media.find((x) => x.id === mediaSel); if (!m) return;
+                  setForm((f) => ({ ...f, text: f.text + (f.text ? "\n\n" : "") + `<img src="/wt-content/uploads/${m.name}" alt="${m.name.replace(/\.[a-z]+$/i, "")}">` }));
+                  setMediaOpen(false); toast("ok", "Изображение вставлено", "Тег img добавлен в текст записи");
+                }}><I n="check" s={14} />Вставить в запись</Btn>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="grid lg:grid-cols-[1fr_300px] gap-4 items-start">
           <Card pad>
             <label className="block text-[12.8px] font-semibold text-ink-700 mb-1.5">Заголовок</label>
             <input className={inputCls + " text-[16px] font-bold"} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Заголовок записи" required autoFocus />
             <label className="block text-[12.8px] font-semibold text-ink-700 mt-4 mb-1.5">Текст записи</label>
             <textarea className={inputCls + " h-56 py-3 resize-y leading-relaxed"} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} placeholder="Абзацы разделяйте пустой строкой…" />
+            <p className="mt-3"><Btn kind="ghost" sm type="button" onClick={() => { setMediaSel(null); setMediaOpen(true); }}><I n="image" s={14} />Вставить изображение из медиафайлов</Btn></p>
           </Card>
           <div>
-            <Card title="Публикация" pad>
-              <div className="flex gap-2">
+            <Card title="Публикация" sub="Настройки — как в WordPress" pad>
+              <div className="flex justify-between items-center gap-3 py-2 border-b border-dashed border-line text-[13px]">
+                <b className="font-semibold text-mut">Статус</b>
+                <select className={inputCls + " h-8 w-auto text-[12.5px] py-0"} value={pub.status} onChange={(e) => setPub({ ...pub, status: e.target.value })}>
+                  <option value="published">Опубликовано</option><option value="draft">Черновик</option>
+                </select>
+              </div>
+              <div className="py-2 border-b border-dashed border-line text-[13px]">
+                <b className="font-semibold text-mut block mb-1.5">Видимость</b>
+                {([["public", "Для всех"], ["password", "Защищена паролем"], ["private", "Приватная (только админ)"]] as const).map(([k, l]) => (
+                  <label key={k} className="flex gap-2 items-center my-1 cursor-pointer font-medium">
+                    <input type="radio" className="w-auto" checked={pub.visibility === k} onChange={() => setPub({ ...pub, visibility: k })} />{l}
+                  </label>
+                ))}
+                {pub.visibility === "password" && <input className={inputCls + " h-8 mt-2 text-[12.5px]"} placeholder="Пароль записи" value={pub.password} onChange={(e) => setPub({ ...pub, password: e.target.value })} />}
+              </div>
+              <div className="py-2 text-[13px]">
+                <b className="font-semibold text-mut block mb-1.5">Дата публикации</b>
+                <input type="datetime-local" className={inputCls + " h-8 text-[12.5px]"} value={pub.date} onChange={(e) => setPub({ ...pub, date: e.target.value })} />
+                <p className="text-[11.5px] text-mut mt-1.5">{pub.date && new Date(pub.date).getTime() > Date.now() ? <b className="text-warn">Запланирована: {new Date(pub.date).toLocaleString("ru-RU")}</b> : "Пусто — опубликовать сразу"}</p>
+              </div>
+              <div className="flex gap-2 mt-3">
                 <Btn type="submit"><I n="check" s={15} />Сохранить</Btn>
                 <Btn kind="ghost" type="button" onClick={() => { setEditing(null); setForm({ title: "", cat: "Новости", text: "" }); }}>Отмена</Btn>
               </div>
@@ -583,8 +694,7 @@ function Screens({ st, set, route, toast }: { st: Store; set: (fn: (s: Store) =>
     );
 
     case "settings": {
-      const tabs = [["", "Общие"], ["comments", "Обсуждение"], ["cache", "Кеш и скорость"], ["security", "Безопасность и 2FA"], ["backups", "Резервные копии"], ["login", "Страница входа"]] as const;
-      return (
+          const tabs = [["", "Общие"], ["comments", "Обсуждение"], ["cache", "Кеш и скорость"], ["permalinks", "Постоянные ссылки"], ["security", "Безопасность и 2FA"], ["backups", "Резервные копии"], ["login", "Страница входа"]] as const;      return (
         <>
           <div className="inline-flex gap-1 bg-paper border border-line p-1 rounded-xl mb-4 flex-wrap">
             {tabs.map(([k, l]) => (
@@ -926,6 +1036,147 @@ function Screens({ st, set, route, toast }: { st: Store; set: (fn: (s: Store) =>
       </>
     );
 
+    case "media": return (
+      <div className="grid lg:grid-cols-[1fr_300px] gap-4 items-start">
+        <Card title="Библиотека" sub={`${st.media.length} файл(ов) · изображения оптимизируются при загрузке (GD)`}
+          right={<Btn kind="amber" sm onClick={() => { set((s) => ({ ...s, media: [...s.media, { id: Date.now(), name: `foto-${s.media.length + 1}.jpg`, grad: `linear-gradient(140deg,#0d3039,#f0b429 ${130 + s.media.length * 8}%)` }] })); toast("ok", "Файл загружен", "Оптимизирован и добавлен в библиотеку"); }}><I n="dl" s={14} />Загрузить (демо)</Btn>} pad>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3">
+            {st.media.map((m) => (
+              <button key={m.id} onClick={() => setSelMedia(m.id)}
+                className={`rounded-xl overflow-hidden border-2 cursor-pointer transition-all hover:-translate-y-1 hover:shadow-panel text-left ${selMedia === m.id ? "border-teal-deep ring-[3px] ring-teal-deep/20" : "border-line"}`}
+                style={{ background: m.grad }}>
+                <span className="h-[86px] grid place-items-center text-white/70"><I n="image" s={24} /></span>
+                <span className="block bg-card px-2.5 py-2"><b className="block text-[11.5px] text-ink-900 truncate">{m.name}</b><span className="text-[10.5px] text-mut">2026/02 · 240 КБ</span></span>
+              </button>
+            ))}
+          </div>
+        </Card>
+        <Card title="Данные файла" sub="Название, alt и подпись — как в WordPress" pad>
+          {(() => {
+            const m = st.media.find((x) => x.id === selMedia);
+            if (!m) return <p className="text-[13px] text-mut py-6 text-center">Выберите файл в библиотеке слева</p>;
+            return (
+              <>
+                <div className="h-32 rounded-xl mb-3 grid place-items-center text-white/70" style={{ background: m.grad }}><I n="image" s={26} /></div>
+                <label className="block text-[12.5px] font-semibold text-ink-700 mb-1">Название</label>
+                <input className={inputCls} defaultValue={m.name.replace(/\.[a-z]+$/i, "")} />
+                <label className="block text-[12.5px] font-semibold text-ink-700 mt-3 mb-1">Атрибут alt</label>
+                <input className={inputCls} placeholder="Описание для поисковиков" />
+                <label className="block text-[12.5px] font-semibold text-ink-700 mt-3 mb-1">Подпись</label>
+                <input className={inputCls} placeholder="Подпись под изображением" />
+                <div className="flex gap-2 mt-4 flex-wrap">
+                  <Btn kind="ghost" sm onClick={() => { navigator.clipboard?.writeText(`/wt-content/uploads/2026/02/${m.name}`).catch(() => undefined); toast("ok", "URL скопирован"); }}><I n="copy" s={13} />Копировать URL</Btn>
+                  <Btn kind="danger" sm onClick={() => { set((s) => ({ ...s, media: s.media.filter((x) => x.id !== m.id) })); setSelMedia(null); toast("ok", "Файл удалён"); }}><I n="trash" s={13} />Удалить</Btn>
+                </div>
+                <p className="text-[12px] text-mut mt-3 leading-relaxed">Вставка в запись — через кнопку «Вставить изображение» в редакторе.</p>
+              </>
+            );
+          })()}
+        </Card>
+      </div>
+    );
+
+    case "widgets": return (
+      <div className="grid lg:grid-cols-[270px_1fr] gap-4 items-start">
+        <Card title="Добавить виджет" sub="Выберите область и тип" pad>
+          {st.widgetAreas.map((a) => (
+            <div key={a.id} className="border-t border-dashed border-line pt-2.5 mt-2.5 first:border-0 first:mt-0 first:pt-0">
+              <b className="text-[13px] text-ink-900">{a.name}</b> <Badge>{a.id}</Badge>
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                {Object.entries(W_TYPES).map(([k, v]) => (
+                  <Btn key={k} kind="ghost" sm onClick={() => { set((s) => ({ ...s, widgetAreas: s.widgetAreas.map((x) => x.id === a.id ? { ...x, items: [...x.items, { type: k, title: v, text: "" }] } : x) })); toast("ok", "Виджет добавлен", `«${v}» — в области «${a.name}»`); }}>{v}</Btn>
+                ))}
+              </div>
+            </div>
+          ))}
+        </Card>
+        <div>
+          {st.widgetAreas.map((a) => (
+            <Card key={a.id} title={a.name} sub={`Область темы · ${a.items.length} видж.`} pad>
+              {a.items.length === 0 && <p className="text-[13px] text-mut py-3">Область пуста — добавьте виджет слева.</p>}
+              {a.items.map((w, i) => (
+                <div key={i} className="border border-line rounded-xl p-3.5 mb-2.5 bg-paper anim-fade">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge tone="teal">{W_TYPES[w.type] ?? w.type}</Badge>
+                    <input className={inputCls + " h-8 flex-1 min-w-[160px] text-[13px]"} value={w.title}
+                      onChange={(e) => set((s) => ({ ...s, widgetAreas: s.widgetAreas.map((x) => x.id === a.id ? { ...x, items: x.items.map((y, j) => j === i ? { ...y, title: e.target.value } : y) } : x) }))} />
+                    <span className="flex gap-1">
+                      <button className="icobtn w-8 h-8 grid place-items-center rounded-lg border border-line bg-card text-mut hover:text-teal-deep cursor-pointer disabled:opacity-30" disabled={i === 0}
+                        onClick={() => set((s) => ({ ...s, widgetAreas: s.widgetAreas.map((x) => { if (x.id !== a.id) return x; const it = [...x.items]; const t = it[i - 1]; it[i - 1] = it[i]; it[i] = t; return { ...x, items: it }; }) }))} title="Выше"><I n="up" s={13} /></button>
+                      <button className="icobtn w-8 h-8 grid place-items-center rounded-lg border border-line bg-card text-mut hover:text-teal-deep cursor-pointer disabled:opacity-30" disabled={i === a.items.length - 1}
+                        onClick={() => set((s) => ({ ...s, widgetAreas: s.widgetAreas.map((x) => { if (x.id !== a.id) return x; const it = [...x.items]; const t = it[i + 1]; it[i + 1] = it[i]; it[i] = t; return { ...x, items: it }; }) }))} title="Ниже"><I n="down" s={13} /></button>
+                      <button className="icobtn w-8 h-8 grid place-items-center rounded-lg border border-line bg-card text-danger hover:bg-danger/10 cursor-pointer"
+                        onClick={() => { set((s) => ({ ...s, widgetAreas: s.widgetAreas.map((x) => x.id === a.id ? { ...x, items: x.items.filter((_, j) => j !== i) } : x) })); toast("ok", "Виджет удалён"); }} title="Удалить"><I n="x" s={13} /></button>
+                    </span>
+                  </div>
+                  {(w.type === "text" || w.type === "html") && (
+                    <textarea className={inputCls + " mt-2 h-16 py-2 text-[12.5px] resize-y"} placeholder={w.type === "html" ? "HTML-код" : "Текст виджета"} value={w.text}
+                      onChange={(e) => set((s) => ({ ...s, widgetAreas: s.widgetAreas.map((x) => x.id === a.id ? { ...x, items: x.items.map((y, j) => j === i ? { ...y, text: e.target.value } : y) } : x) }))} />
+                  )}
+                </div>
+              ))}
+              {a.items.length > 0 && <Btn sm onClick={() => toast("ok", "Виджеты сохранены", `Область «${a.name}» обновлена на сайте`)}><I n="check" s={14} />Сохранить виджеты</Btn>}
+            </Card>
+          ))}
+          <p className="text-[12.5px] text-mut">Области регистрирует тема через <code className="text-[12px]">register_sidebar()</code>: сайдбар — на странице записи, подвал — на всех страницах. Виджеты WordPress-плагинов (<code className="text-[12px]">WP_Widget</code>) тоже поддерживаются.</p>
+        </div>
+      </div>
+    );
+
+    case "plugin-new":
+    case "theme-new": {
+      const kind = page === "plugin-new" ? "plugins" as const : "themes" as const;
+      return (
+        <>
+          <Card pad>
+            <form className="flex gap-2.5 flex-wrap" onSubmit={(e) => { e.preventDefault(); wpSearch(kind, wpQuery); }}>
+              <input className={inputCls + " flex-1 min-w-[240px]"} placeholder={`Найти ${kind === "plugins" ? "плагин" : "тему"} в каталоге WordPress.org…`} value={wpQuery} onChange={(e) => setWpQuery(e.target.value)} />
+              <Btn type="submit" disabled={wpBusy}><I n={wpBusy ? "refresh" : kind === "plugins" ? "plug" : "palette"} s={15} c={wpBusy ? "anim-spin" : ""} />{wpBusy ? "Загружаем…" : "Искать"}</Btn>
+            </form>
+            <p className="text-[12.5px] text-mut mt-2.5">Список подгружается из публичного API wordpress.org — установка в один клик: скачивание, распаковка{kind === "plugins" ? ", активация" : ""}. В PHP-версии консоли это делает сервер.</p>
+          </Card>
+          {!wpItems && !wpBusy && (
+            <Card pad>
+              <div className="py-10 text-center">
+                <span className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-deep-2/8 text-mut mb-4"><I n={kind === "plugins" ? "plug" : "palette"} s={26} /></span>
+                <p className="text-[14px] font-bold text-ink-900">Введите запрос — подгрузим каталог WordPress.org</p>
+                <p className="text-[13px] text-mut mt-1.5">Например: {kind === "plugins" ? "cache, seo, forms, security" : "astra, kadence, blog"}</p>
+                <div className="flex gap-2 justify-center mt-4 flex-wrap">
+                  {(kind === "plugins" ? ["cache", "seo", "forms"] : ["blog", "shop", "news"]).map((q) => (
+                    <Btn key={q} kind="ghost" sm onClick={() => { setWpQuery(q); wpSearch(kind, q); }}>{q}</Btn>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+          {wpItems && (
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3.5">
+              {wpItems.map((it) => (
+                <Card key={it.slug} pad>
+                  <div className="flex gap-3">
+                    {kind === "themes"
+                      ? <span className="w-[92px] h-[68px] shrink-0 rounded-lg overflow-hidden grid place-items-center text-white/70" style={{ background: "linear-gradient(140deg,#0d3039,#134450)" }}>{it.shot ? <img src={it.shot} alt="" className="w-full h-full object-cover" /> : <I n="palette" s={22} />}</span>
+                      : <span className="w-13 h-13 w-[52px] h-[52px] shrink-0 rounded-xl bg-paper grid place-items-center text-mut overflow-hidden">{it.icon ? <img src={it.icon} alt="" className="w-full h-full object-cover" /> : <I n="plug" s={22} />}</span>}
+                    <div className="min-w-0">
+                      <b className="block text-[14px] text-ink-900 truncate">{it.name}</b>
+                      <span className="text-[11.5px] text-amber-brand">★★★★★</span>
+                      <p className="text-[11.5px] text-mut">{it.meta}</p>
+                    </div>
+                  </div>
+                  <p className="text-[12.5px] text-mut mt-2.5 leading-relaxed line-clamp-3">{it.desc || "Описание доступно в каталоге WordPress.org."}</p>
+                  <div className="flex items-center gap-2 mt-3 border-t border-dashed border-line pt-3">
+                    {kind === "plugins" && <label className="flex gap-1.5 items-center text-[11.5px] text-mut cursor-pointer"><input type="checkbox" defaultChecked className="w-auto" />активировать</label>}
+                    <span className="flex-1" />
+                    <Btn sm disabled={wpInstalling !== null} onClick={() => wpInstall(kind, it)}>{wpInstalling === it.slug ? "Устанавливаем…" : "Установить"}</Btn>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      );
+    }
+
     default: {
       const [t, s] = TITLES[page] ?? ["Раздел", ""];
       return (
@@ -1017,6 +1268,12 @@ function Admin({ userName, onOut, toast }: { userName: string; onOut: () => void
     commentsOff: false, moderate: true, cacheOn: true, imgAuto: true,
     titleTpl: "{title} — {site}", descTpl: "{excerpt}",
     backups: [], log: ["Вход в консоль подтверждён (2FA)", "Кеш очищен автоматически", "Создан API-ключ «Приложение Android»"],
+    widgetAreas: [
+      { id: "sidebar-1", name: "Сайдбар", items: [{ type: "search", title: "Поиск", text: "" }, { type: "recent", title: "Свежие записи", text: "" }, { type: "categories", title: "Рубрики", text: "" }] },
+      { id: "footer-1", name: "Подвал: колонка 1", items: [{ type: "text", title: "О сайте", text: "Сайт работает на Wordtime CMS." }] },
+      { id: "footer-2", name: "Подвал: колонка 2", items: [{ type: "menu", title: "Разделы", text: "" }] },
+    ],
+    media: DEMO_MEDIA,
   });
   const set = useCallback((fn: (s: Store) => Store) => setSt(fn), []);
   const [fly, setFly] = useState<{ item: MItem; top: number } | null>(null);

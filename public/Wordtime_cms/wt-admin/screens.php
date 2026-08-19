@@ -179,14 +179,57 @@ function wt_screen_posts() {
         $row = $id > 0 ? wt_db()->query('SELECT * FROM ' . wt_t('posts') . ' WHERE id = ' . $id)->fetch() : null;
         if ($id > 0 && !$row) { header('Location: ' . wt_admin_url('&page=posts')); exit; }
         if (!$row) $row = array('id' => 0, 'post_title' => '', 'slug' => '', 'post_content' => '', 'category' => wt_categories()[0], 'tags' => '', 'post_status' => 'published', 'post_image' => '');
+        $rowVis = isset($row['visibility']) ? $row['visibility'] : 'public';
+        $rowPass = isset($row['post_password']) ? $row['post_password'] : '';
+        $rowDate = isset($row['post_date']) ? $row['post_date'] : '';
+        $scheduled = $rowDate !== '' && strtotime($rowDate) > time();
         wt_shell('posts', $id > 0 ? 'Редактор записи' : 'Новая запись', $id > 0 ? 'Изменения вступят в силу сразу после сохранения' : 'Заполните заголовок и текст — остальное сделаем сами');
+
+        /* ── Модальное окно «Медиафайлы» (как в WordPress) ── */
+        $mediaJson = json_encode(array_map(function ($m) { return array('url' => $m['url'], 'title' => $m['title'], 'alt' => $m['alt'], 'image' => $m['image']); }, wt_media_list()), JSON_UNESCAPED_UNICODE);
+        echo '<div id="wtMediaModal" style="display:none;position:fixed;inset:0;z-index:120;background:rgba(7,27,33,.6);align-items:center;justify-content:center;padding:20px">';
+        echo '<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;max-width:760px;width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 30px 80px -20px rgba(0,0,0,.5)">';
+        echo '<div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--line)"><h2 style="margin:0;font:700 15px var(--disp)">Медиафайлы</h2><span style="color:var(--mut);font-size:12.5px">выберите изображение для вставки</span><button type="button" onclick="document.getElementById(\'wtMediaModal\').style.display=\'none\'" style="margin-left:auto;cursor:pointer" class="icobtn">' . wt_icon('x', 15) . '</button></div>';
+        echo '<div id="wtMediaGrid" style="overflow-y:auto;padding:18px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px"></div>';
+        echo '<div style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap">';
+        echo '<input type="file" id="wtMediaUploadFile" accept="image/*" style="flex:1;min-width:180px">';
+        echo '<button type="button" class="btn ghost sm" onclick="wtMediaDoUpload()">Загрузить</button>';
+        echo '<button type="button" class="btn sm" id="wtMediaInsert" disabled>Вставить в запись</button>';
+        echo '</div></div></div>';
+        echo '<script>window.__wtMedia=' . $mediaJson . ';window.__wtMediaSel=null;';
+        echo 'function wtMediaRender(){var g=document.getElementById("wtMediaGrid");g.innerHTML="";var list=window.__wtMedia.filter(function(m){return m.image;});';
+        echo 'if(!list.length){g.innerHTML="<p style=\\"grid-column:1/-1;color:var(--mut);text-align:center;padding:26px 0\\">Изображений пока нет — загрузите первое ниже.</p>";return;}';
+        echo 'list.forEach(function(m){var d=document.createElement("div");d.style.cssText="cursor:pointer;border-radius:10px;overflow:hidden;border:2px solid var(--line);height:86px;transition:.15s";';
+        echo 'd.innerHTML="<img src=\\""+m.url+"\\" style=\\"width:100%;height:100%;object-fit:cover\\" alt=\\"\\">";';
+        echo 'd.onmouseenter=function(){this.style.transform=\\"translateY(-2px)\\"};d.onmouseleave=function(){this.style.transform=\\"\\"};';
+        echo 'd.onclick=function(){window.__wtMediaSel=m;Array.prototype.forEach.call(g.children,function(c){c.style.borderColor=\\"var(--line)\\"});this.style.borderColor=\\"var(--teal)\\";document.getElementById(\\"wtMediaInsert\\").disabled=false;};';
+        echo 'g.appendChild(d);});}';
+        echo 'document.getElementById("wtMediaInsert").onclick=function(){var m=window.__wtMediaSel;if(!m)return;var ta=document.querySelector("textarea[name=content]");var tag="<img src=\\""+m.url+"\\" alt=\\""+(m.alt||m.title)+"\\">";ta.value+=(ta.value?"\\n\\n":"")+tag;document.getElementById("wtMediaModal").style.display="none";};';
+        echo 'function wtMediaOpen(){wtMediaRender();document.getElementById("wtMediaModal").style.display="flex";}';
+        echo 'function wtMediaDoUpload(){var f=document.getElementById("wtMediaUploadFile").files[0];if(!f)return;var fd=new FormData();fd.append("file",f);fd.append("action","upload");fd.append("wt_nonce","' . wt_nonce('admin') . '");';
+        echo 'fetch("' . esc_attr(wt_admin_url()) . '",{method:"POST",body:fd}).then(function(){location.reload();});}';
+        echo '</script>';
+
         wt_form_open(array('action' => 'post-save', 'id' => $row['id']));
         echo '<div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start">';
         echo '<div class="card"><label>Заголовок</label><input type="text" name="title" value="' . esc_attr($row['post_title']) . '" required placeholder="Заголовок записи" style="font-size:17px;font-weight:700">';
-        echo '<label>Текст записи</label><textarea name="content" rows="14" placeholder="Абзацы разделяйте пустой строкой. Разрешены ссылки, списки, цитаты.">' . esc($row['post_content']) . '</textarea></div><div>';
-        echo '<div class="card"><h2>Публикация</h2><label>Статус</label><select name="status">';
+        echo '<label>Текст записи</label><textarea name="content" rows="14" placeholder="Абзацы разделяйте пустой строкой. Разрешены ссылки, списки, цитаты и изображения.">' . esc($row['post_content']) . '</textarea>';
+        echo '<p style="margin:12px 0 0"><button type="button" class="btn ghost sm" onclick="wtMediaOpen()">' . wt_icon('image', 14) . 'Вставить изображение из медиафайлов</button></p></div><div>';
+        /* ── Настройки публикации (как в WordPress) ── */
+        echo '<div class="card"><h2>Публикация</h2>';
+        echo '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px;align-items:center"><b style="color:var(--mut);font-weight:600">Статус</b>';
+        echo '<select name="status" style="width:auto;height:31px;padding:0 8px;font-size:12.5px">';
         foreach (array('published' => 'Опубликовано', 'draft' => 'Черновик') as $k => $l) echo '<option value="' . $k . '" ' . ($row['post_status'] === $k ? 'selected' : '') . '>' . $l . '</option>';
-        echo '</select><p style="margin:16px 0 0;display:flex;gap:9px"><button class="btn" type="submit">' . wt_icon('check', 15) . 'Сохранить</button><a class="btn ghost" href="' . esc_attr(wt_admin_url('&page=posts')) . '">Отмена</a></p></div>';
+        echo '</select></div>';
+        echo '<div style="padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px"><b style="color:var(--mut);font-weight:600;display:block;margin-bottom:7px">Видимость</b>';
+        foreach (array('public' => 'Для всех', 'password' => 'Защищена паролем', 'private' => 'Приватная (только админ)') as $k => $l) {
+            echo '<label style="display:flex;gap:8px;align-items:center;margin:5px 0;cursor:pointer;font-weight:500"><input type="radio" name="visibility" value="' . $k . '" style="width:auto" ' . ($rowVis === $k ? 'checked' : '') . ' onchange="document.getElementById(\'wtPassRow\').style.display=this.value===\'password\'?\'block\':\'none\'"> ' . $l . '</label>';
+        }
+        echo '<div id="wtPassRow" style="display:' . ($rowVis === 'password' ? 'block' : 'none') . ';margin-top:7px"><input type="text" name="post_password" value="' . esc_attr($rowPass) . '" placeholder="Пароль записи" style="height:34px;font-size:13px"></div></div>';
+        echo '<div style="padding:9px 0;font-size:13px"><b style="color:var(--mut);font-weight:600;display:block;margin-bottom:7px">Дата публикации</b>';
+        echo '<input type="datetime-local" name="post_date" value="' . esc_attr($rowDate !== '' ? date('Y-m-d\TH:i', strtotime($rowDate)) : '') . '" style="height:34px;font-size:13px">';
+        echo '<p style="margin:6px 0 0;color:var(--mut);font-size:12px">' . ($scheduled ? '<b style="color:var(--warn)">Запланирована: ' . esc(date('d.m.Y H:i', strtotime($rowDate))) . '</b>' : 'Пусто — опубликовать сразу') . '</p></div>';
+        echo '<p style="margin:14px 0 0;display:flex;gap:9px"><button class="btn" type="submit">' . wt_icon('check', 15) . 'Сохранить</button><a class="btn ghost" href="' . esc_attr(wt_admin_url('&page=posts')) . '">Отмена</a></p></div>';
         echo '<div class="card"><h2>Рубрика и теги</h2><label>Рубрика</label><select name="category">';
         foreach (wt_categories() as $c) echo '<option ' . ($row['category'] === $c ? 'selected' : '') . '>' . esc($c) . '</option>';
         echo '</select><label>Теги (через запятую)</label><input type="text" name="tags" value="' . esc_attr($row['tags']) . '" placeholder="кеш, 2fa, релиз"></div>';
@@ -320,24 +363,49 @@ function wt_screen_comments() {
 }
 
 function wt_screen_media() {
-    $files = wt_media_files();
+    $files = wt_media_list();
     $isNew = isset($_GET['new']);
-    wt_shell('media', 'Медиафайлы', 'Загрузка, оптимизация и управление файлами · ' . count($files) . ' шт. · ' . wt_fmt_kb(wt_dir_size(WT_UPLOADS)));
+    $sel = isset($_GET['sel']) ? (string)$_GET['sel'] : '';
+    $current = null;
+    foreach ($files as $f) if ($f['file'] === $sel) { $current = $f; break; }
+    wt_shell('media', 'Медиафайлы', 'Библиотека сайта · ' . count($files) . ' файл(ов) · ' . wt_fmt_kb(wt_dir_size(WT_UPLOADS)) . ' · изображения оптимизируются при загрузке (GD)');
     echo '<div class="card" ' . ($isNew ? 'style="border-color:var(--amber);box-shadow:0 0 0 3px rgba(240,180,41,.18)"' : '') . '><h2>Загрузить файл</h2>';
     echo '<p style="color:var(--mut);font-size:13px;margin:4px 0 12px">JPG, PNG, GIF, WebP, SVG, PDF, MP4 · до 20 МБ.' . (function_exists('imagecreatefromstring') && wt_option('img_auto', true) ? ' Изображения автоматически оптимизируются (настройки — «Оптимизация → Изображения»).' : '') . '</p>';
     wt_form_open(array('action' => 'upload', 'enctype' => 1));
     echo '<div style="display:flex;gap:10px;flex-wrap:wrap"><input type="file" name="file" required ' . ($isNew ? 'autofocus' : '') . ' style="flex:1;min-width:240px"><button class="btn amber" type="submit">' . wt_icon('dl', 15) . 'Загрузить</button></div></form></div>';
     if (count($files) === 0) { echo '<div class="card empty">' . wt_icon('image', 28) . '<br>Файлов пока нет — загрузите первый.</div>'; wt_shell_close(); exit; }
+
+    echo '<div style="display:grid;grid-template-columns:' . ($current ? '1fr 300px' : '1fr') . ';gap:18px;align-items:start">';
+    /* сетка библиотеки */
     echo '<div class="mgrid">';
     foreach ($files as $f) {
-        $url = wt_asset('wt-content/uploads/' . $f['rel']);
-        $isImg = (bool)preg_match('/\.(jpe?g|png|gif|webp)$/i', $f['rel']);
-        echo '<div class="mcell"><div class="ph">' . ($isImg ? '<img src="' . esc_url($url) . '" alt="" loading="lazy">' : wt_icon('file', 26)) . '</div>';
-        echo '<div class="in"><b title="' . esc_attr($f['rel']) . '">' . esc(basename($f['rel'])) . '</b><span>' . wt_fmt_kb($f['size']) . ' · ' . esc(date('d.m.Y', $f['time'])) . '</span>';
-        echo '<div class="row-inline" style="margin-top:7px"><button class="icobtn" type="button" data-copy="' . esc_attr($url) . '" title="Скопировать ссылку">' . wt_icon('copy', 13) . '</button>';
-        wt_form_open(array('action' => 'media-delete', 'rel' => $f['rel']));
-        echo '<button class="icobtn" type="submit" title="Удалить" style="color:var(--red)" onclick="return confirm(\'Удалить файл?\')">' . wt_icon('trash', 13) . '</button></form>';
-        echo '</div></div></div>';
+        $on = $current && $current['file'] === $f['file'];
+        echo '<a class="mcell" href="' . esc_attr(wt_admin_url('&page=media&sel=' . urlencode($f['file']))) . '" style="text-decoration:none;color:inherit;border-color:' . ($on ? 'var(--teal)' : 'var(--line)') . ($on ? ';box-shadow:0 0 0 3px rgba(14,147,132,.18)' : '') . '">';
+        echo '<div class="ph">' . ($f['image'] ? '<img src="' . esc_url($f['url']) . '" alt="' . esc_attr($f['alt']) . '" loading="lazy">' : wt_icon('file', 26)) . '</div>';
+        echo '<div class="in"><b title="' . esc_attr($f['file']) . '">' . esc($f['name']) . '</b><span>' . wt_fmt_kb($f['size']) . ' · ' . esc(date('d.m.Y', $f['time'])) . '</span></div></a>';
+    }
+    echo '</div>';
+
+    /* панель деталей выбранного файла — как в WordPress */
+    if ($current) {
+        echo '<div class="card" style="margin:0"><h2>Данные файла</h2>';
+        if ($current['image']) echo '<p style="margin:10px 0"><img src="' . esc_url($current['url']) . '" alt="' . esc_attr($current['alt']) . '" style="width:100%;border-radius:10px;border:1px solid var(--line)"></p>';
+        wt_form_open(array('action' => 'media-meta-save', 'file' => $current['file']));
+        echo '<label>Название</label><input type="text" name="mtitle" value="' . esc_attr($current['title']) . '">';
+        echo '<label>Атрибут alt</label><input type="text" name="malt" value="' . esc_attr($current['alt']) . '" placeholder="Описание для поисковиков и скринридеров">';
+        echo '<label>Подпись</label><input type="text" name="mcaption" value="' . esc_attr($current['caption']) . '">';
+        echo '<p style="margin:14px 0 0"><button class="btn sm" type="submit">' . wt_icon('check', 14) . 'Сохранить</button></p></form>';
+        echo '<div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px">';
+        echo '<div class="kv"><b>Файл</b><span style="font-family:monospace;font-size:11.5px">' . esc($current['file']) . '</span></div>';
+        echo '<div class="kv"><b>Размер</b><span>' . wt_fmt_kb($current['size']) . '</span></div>';
+        echo '<div class="kv"><b>Загружен</b><span>' . esc(date('d.m.Y H:i', $current['time'])) . '</span></div>';
+        echo '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">';
+        echo '<button class="btn ghost sm" type="button" data-copy="' . esc_attr($current['url']) . '">' . wt_icon('copy', 13) . 'Копировать URL</button>';
+        wt_form_open(array('action' => 'media-delete', 'rel' => $current['file']));
+        echo '<button class="btn red sm" type="submit" onclick="return confirm(\'Удалить файл?\')">' . wt_icon('trash', 13) . 'Удалить</button></form>';
+        echo '</div>';
+        echo '<p style="color:var(--mut);font-size:12px;margin:12px 0 0;line-height:1.6">Чтобы вставить изображение в запись — откройте редактор и нажмите «Вставить изображение из медиафайлов».</p>';
+        echo '</div></div>';
     }
     echo '</div>';
     wt_shell_close(); exit;
@@ -497,36 +565,70 @@ function wt_screen_plugins() {
 }
 
 function wt_screen_plugin_new() {
-    wt_shell('plugin-new', 'Добавить плагин', 'Загрузка .php-расширения в каталог плагинов');
-    /* Пример кода — nowdoc: одинарные кавычки внутри НЕ ломают PHP */
-    $example = <<<'WT_PLUGIN_EXAMPLE'
-<?php
-/**
- * Plugin Name: Мой плагин
- * Description: Пример расширения Wordtime
- */
+    $q = isset($_GET['s']) ? trim((string)$_GET['s']) : '';
+    wt_shell('plugin-new', 'Добавить плагин', 'Каталог WordPress.org — установка так же, как в самой WordPress: скачивание, распаковка, активация');
 
-// Свой вывод в <head> на каждой странице
-wt_add_action('wt_head', function () {
-    echo '<meta name="generator" content="Мой плагин">';
-});
+    /* поиск по каталогу */
+    echo '<div class="card"><form method="get" action="' . esc_attr(wt_admin_url()) . '" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">';
+    echo '<input type="hidden" name="admin" value="1"><input type="hidden" name="page" value="plugin-new">';
+    echo '<input type="text" name="s" value="' . esc_attr($q) . '" placeholder="Найти плагин в каталоге WordPress.org…" style="flex:1;min-width:240px">';
+    echo '<button class="btn" type="submit">' . wt_icon('plus', 15) . 'Искать</button>';
+    if ($q !== '') echo '<a class="btn ghost" href="' . esc_attr(wt_admin_url('&page=plugin-new')) . '">Сбросить</a>';
+    echo '</form></div>';
 
-// Фильтр заголовков (аналог the_title в WordPress)
-wt_add_filter('wt_title', function ($title) {
-    return $title . ' — проверено плагином';
-});
+    $api = wt_wp_api('plugins', $q);
+    if ($api === null) {
+        echo '<div class="alert warn">' . wt_icon('alert', 17) . '<span>Каталог WordPress.org сейчас недоступен (нет исходящего соединения или API не отвечает). Попробуйте позже или установите плагин из ZIP-файла ниже.</span></div>';
+        $api = array('plugins' => array());
+    }
+    $list = isset($api['plugins']) ? $api['plugins'] : array();
 
-// Фоновая задача через очередь (выполняет wt-cron.php)
-wt_add_action('wt_queue_my_task', function ($payload) {
-    // обработка полезной нагрузки…
-});
-WT_PLUGIN_EXAMPLE;
-    echo '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">';
-    echo '<div class="card"><h2>Загрузить плагин</h2><p style="color:var(--mut);font-size:13px;margin:4px 0 12px">Файл должен начинаться с <code>&lt;?php</code> и использовать хуки Wordtime. После загрузки активируйте его в списке.</p>';
+    if ($q === '' && count($list) === 0) {
+        echo '<div class="card empty">' . wt_icon('plug', 28) . '<br>Введите запрос — подгрузим список плагинов прямо из каталога WordPress.org.</div>';
+    } elseif (count($list) === 0) {
+        echo '<div class="card empty">' . wt_icon('plug', 28) . '<br>По запросу «' . esc($q) . '» ничего не найдено.</div>';
+    } else {
+        echo '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">';
+        foreach ($list as $pl) {
+            $name = isset($pl['name']) ? strip_tags((string)$pl['name']) : 'Плагин';
+            $author = isset($pl['author']) ? strip_tags((string)$pl['author']) : '';
+            $desc = isset($pl['short_description']) ? strip_tags((string)$pl['short_description']) : '';
+            $dl = isset($pl['download_link']) ? (string)$pl['download_link'] : '';
+            $icon = '';
+            if (!empty($pl['icons']['1x'])) $icon = $pl['icons']['1x'];
+            elseif (!empty($pl['icons']['default'])) $icon = $pl['icons']['default'];
+            $installs = isset($pl['active_installs']) ? (int)$pl['active_installs'] : 0;
+            $rating = 0;
+            if (!empty($pl['ratings'])) { $tot = array_sum($pl['ratings']); if ($tot > 0) $rating = round((5 * $pl['ratings'][5] + 4 * $pl['ratings'][4] + 3 * $pl['ratings'][3] + 2 * $pl['ratings'][2] + $pl['ratings'][1]) / $tot); }
+            echo '<div class="card" style="margin:0;display:flex;flex-direction:column"><div style="display:flex;gap:12px">';
+            echo '<span style="width:56px;height:56px;flex:none;border-radius:12px;overflow:hidden;background:#eef2f3;display:grid;place-items:center;color:#5c7379">' . ($icon !== '' ? '<img src="' . esc_url($icon) . '" alt="" style="width:100%;height:100%;object-fit:cover">' : wt_icon('plug', 24)) . '</span>';
+            echo '<div style="min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' . esc($name) . '</b>';
+            echo '<span style="font-size:12px;color:var(--mut)">' . esc($author) . '</span><br>';
+            echo '<span style="font-size:12px;color:var(--amber)">';
+            for ($i = 1; $i <= 5; $i++) echo $i <= $rating ? '★' : '☆';
+            echo '</span></div></div>';
+            echo '<p style="color:var(--mut);font-size:12.5px;line-height:1.6;margin:10px 0;flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical">' . esc(mb_substr($desc, 0, 220)) . '</p>';
+            echo '<div style="display:flex;align-items:center;gap:10px;border-top:1px dashed var(--line);padding-top:10px">';
+            echo '<span style="font-size:11.5px;color:var(--mut)">' . ($installs >= 1000000 ? number_format($installs / 1000000, 1, ',', ' ') . ' млн' : number_format($installs / 1000, 0, ',', ' ') . ' тыс.') . ' активных</span>';
+            echo '<span style="margin-left:auto"></span>';
+            if ($dl !== '') {
+                wt_form_open(array('action' => 'plugin-wp-install', 'download_link' => $dl));
+                echo '<label style="display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--mut);cursor:pointer;margin:0"><input type="checkbox" name="activate" value="1" checked style="width:auto"> активировать</label>';
+                echo '<button class="btn sm" type="submit" onclick="this.disabled=true;this.textContent=\'Устанавливаем…\'">Установить</button></form>';
+            } else echo '<span class="badge b-mut">нет ссылки</span>';
+            echo '</div></div>';
+        }
+        echo '</div>';
+        echo '<p style="color:var(--mut);font-size:12.5px;margin-top:12px">Плагины устанавливаются из официального каталога downloads.wordpress.org. Простые плагины на хуках работают сразу — слой совместимости WordPress API встроен в ядро.</p>';
+    }
+
+    echo '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;margin-top:18px">';
+    echo '<div class="card"><h2>Загрузить плагин (ZIP или PHP)</h2><p style="color:var(--mut);font-size:13px;margin:4px 0 12px">Свой файл или купленный плагин — загрузите архив, распакуем и покажем в списке.</p>';
     wt_form_open(array('action' => 'plugin-upload', 'enctype' => 1));
     echo '<input type="file" name="plugin" accept=".php" required>';
     echo '<p style="margin:16px 0 0"><button class="btn amber" type="submit">' . wt_icon('dl', 15) . 'Загрузить и проверить</button></p></form></div>';
-    echo '<div class="card"><h2>Каркас плагина</h2><pre class="codebox" style="max-height:320px">' . esc($example) . '</pre></div></div>';
+    echo '<div class="card"><h2>Как плагины WordPress работают в Wordtime</h2><p style="color:var(--mut);font-size:13px;line-height:1.75;margin:6px 0 0">Ядро содержит слой совместимости: <code>add_action</code>, <code>add_filter</code>, <code>get_option</code>, <code>esc_html</code>, <code>wp_enqueue_style/script</code>, <code>register_sidebar</code>, <code>WP_Widget</code>, <code>wp_remote_get</code> и десятки других функций поверх ядра Wordtime. Плагины на этих API устанавливаются и активируются без правок.</p></div>';
+    echo '</div>';
     wt_shell_close(); exit;
 }
 
@@ -834,7 +936,7 @@ function wt_screen_settings() {
     if ($tab === '') $tab = 'general';
     wt_shell('settings', 'Настройки', 'Общие, обсуждение, кеш, безопасность, резервные копии и страница входа');
     echo '<div class="tabs">';
-    foreach (array('general' => 'Общие', 'comments' => 'Обсуждение', 'cache' => 'Кеш и скорость', 'security' => 'Безопасность и 2FA', 'backups' => 'Резервные копии', 'login' => 'Страница входа') as $k => $l) {
+    foreach (array('general' => 'Общие', 'comments' => 'Обсуждение', 'cache' => 'Кеш и скорость', 'permalinks' => 'Постоянные ссылки', 'security' => 'Безопасность и 2FA', 'backups' => 'Резервные копии', 'login' => 'Страница входа') as $k => $l) {
         echo '<a class="' . ($tab === $k ? 'on' : '') . '" href="' . esc_attr(wt_admin_url('&page=settings&tab=' . $k)) . '">' . $l . '</a>';
     }
     echo '</div>';
@@ -876,6 +978,29 @@ function wt_screen_settings() {
         echo '<p style="color:#9fc0c5;font-size:13.5px;margin:6px 0 14px">Очистка нужна после правок дизайна, обновлений и восстановления базы. Подробные настройки — «Оптимизация → Скорость и кеш».</p>';
         wt_form_open(array('action' => 'cache-clear', 'back' => 'settings&tab=cache'));
         echo '<button class="btn amber" type="submit">' . wt_icon('zap', 15) . 'Очистить кеш сайта</button></form></div>';
+    } elseif ($tab === 'permalinks') {
+        $struct = wt_permalink_structure();
+        $sample = array('id' => 1, 'slug' => 'privet-wordtime', 'post_date' => date('Y-m-d H:i:s'), 'category' => 'Новости');
+        $opts = array(
+            '' => array('Обычные', '?p=post:privet-wordtime'),
+            '/%postname%/' => array('Название записи', '/privet-wordtime/'),
+            '/%year%/%monthnum%/%postname%/' => array('День и название', '/' . date('Y') . '/' . date('m') . '/privet-wordtime/'),
+            '/%category%/%postname%/' => array('Рубрика и название', '/novosti/privet-wordtime/'),
+            'custom' => array('Произвольно', 'своя структура с тегами'),
+        );
+        $isCustom = !array_key_exists($struct, $opts);
+        wt_form_open(array('action' => 'permalink-save'));
+        echo '<div class="card"><h2>Постоянные ссылки</h2><p style="color:var(--mut);font-size:13.5px;margin:4px 0 14px">Красивые ЧПУ работают при подключённом <code>nginx-wordtime.conf</code> (nginx) или mod_rewrite (Apache) — оба варианта есть в дистрибутиве. Без них сайт полностью работает на обычных ссылках.</p>';
+        foreach ($opts as $k => $o) {
+            $checked = $k === 'custom' ? $isCustom : ($struct === $k);
+            echo '<label style="display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line);cursor:pointer;font-size:14px">';
+            echo '<input type="radio" name="structure" value="' . esc_attr($k) . '" style="width:auto" ' . ($checked ? 'checked' : '') . ' onchange="document.getElementById(\'wtCustomStruct\').style.display=this.value===\'custom\'?\'block\':\'none\'">';
+            echo '<span style="min-width:200px"><b>' . $o[0] . '</b></span>';
+            echo '<code style="color:var(--mut)">' . esc($o[1]) . '</code></label>';
+        }
+        echo '<div id="wtCustomStruct" style="display:' . ($isCustom ? 'block' : 'none') . ';margin-top:14px"><label>Своя структура</label><input type="text" name="custom_structure" value="' . esc_attr($isCustom ? $struct : '') . '" placeholder="/%category%/%postname%/"><p style="color:var(--mut);font-size:12px;margin:6px 0 0">Теги: <code>%postname%</code>, <code>%year%</code>, <code>%monthnum%</code>, <code>%day%</code>, <code>%category%</code>, <code>%post_id%</code></p></div>';
+        echo '<p style="margin:16px 0 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button class="btn" type="submit">' . wt_icon('check', 15) . 'Сохранить изменения</button>';
+        echo '<span style="color:var(--mut);font-size:13px">Пример ссылки на запись сейчас: <code>' . esc(wt_permalink($sample)) . '</code></span></p></div></form>';
     } elseif ($tab === 'security') {
         echo '<div class="card" style="border-color:#bfe5cf"><h2>Двухфакторная аутентификация</h2>';
         echo '<p style="margin:6px 0 0"><span class="badge b-ok">' . wt_icon('shield', 11) . ' 2FA обязательна для всех</span> <span class="badge b-ok">блокировка после 5 попыток · 60 сек</span> <span class="badge b-ok">подготовка SQL-запросов</span> <span class="badge b-ok">экранирование вывода</span></p>';
@@ -912,6 +1037,126 @@ function wt_screen_settings() {
         echo '<label>Сообщение под логотипом</label><input type="text" name="message" value="' . esc_attr(wt_option('login_message', 'Вход защищён двухфакторной аутентификацией')) . '">';
         echo '<label>Подпись в нижней панели</label><input type="text" name="side" value="' . esc_attr(wt_option('login_side', 'Быстро. Безопасно. По-русски.')) . '">';
         echo '<p style="margin:16px 0 0;display:flex;gap:10px"><button class="btn" type="submit">' . wt_icon('check', 15) . 'Сохранить оформление</button> <a class="btn ghost" href="' . esc_attr(wt_admin_url('&action=logout&wt_nonce=' . wt_nonce('logout'))) . '">Выйти и посмотреть</a></p></div></form>';
+    }
+    wt_shell_close(); exit;
+}
+
+/* ── Виджеты (как в WordPress: области + набор виджетов) ──────────── */
+function wt_screen_widgets() {
+    $sidebars = wp_get_sidebars();
+    $types = wt_widget_types();
+    $all = wt_widgets_all();
+    wt_shell('widgets', 'Виджеты', 'Области темы — сайдбар и подвал. Добавляйте, настраивайте и переставляйте виджеты, как в WordPress');
+
+    echo '<div style="display:grid;grid-template-columns:270px 1fr;gap:18px;align-items:start">';
+
+    /* левая колонка: доступные виджеты */
+    echo '<div class="card" style="margin:0"><h2>Добавить виджет</h2><p style="color:var(--mut);font-size:12.5px;margin:4px 0 10px">Выберите область и тип — виджет появится в ней.</p>';
+    foreach ($sidebars as $sb) {
+        echo '<div style="border-top:1px dashed var(--line);padding-top:10px;margin-top:10px"><b style="font-size:13px">' . esc($sb['name']) . '</b> <span class="badge b-mut" style="margin-left:4px">' . esc($sb['id']) . '</span>';
+        echo '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">';
+        foreach ($types as $tk => $tv) {
+            wt_form_open(array('action' => 'widget-add', 'sidebar' => $sb['id'], 'type' => $tk));
+            echo '<button class="btn ghost sm" type="submit" title="' . esc_attr($tv[1]) . '">' . esc($tv[0]) . '</button></form>';
+        }
+        /* виджеты, зарегистрированные WP-плагинами через register_widget() */
+        if (!empty($GLOBALS['wt_widget_classes'])) {
+            foreach ($GLOBALS['wt_widget_classes'] as $cls => $obj) {
+                wt_form_open(array('action' => 'widget-add', 'sidebar' => $sb['id'], 'type' => 'wpclass', 'wpclass' => $cls));
+                echo '<button class="btn ghost sm" type="submit" title="Виджет WordPress-плагина">' . esc($obj->name !== '' ? $obj->name : $cls) . '</button></form>';
+            }
+        }
+        echo '</div></div>';
+    }
+    echo '</div>';
+
+    /* правая колонка: области с виджетами */
+    echo '<div>';
+    foreach ($sidebars as $sb) {
+        $items = isset($all[$sb['id']]) ? $all[$sb['id']] : array();
+        echo '<div class="card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><h2 style="margin:0">' . esc($sb['name']) . '</h2><span class="badge b-mut">' . count($items) . ' видж.</span><span style="color:var(--mut);font-size:12.5px;margin-left:auto">' . esc(isset($sb['description']) ? $sb['description'] : '') . '</span></div>';
+        if (count($items) === 0) {
+            echo '<p style="color:var(--mut);font-size:13px;padding:10px 0 2px">Область пуста — добавьте виджет слева.</p>';
+        } else {
+            wt_form_open(array('action' => 'widget-save', 'sidebar' => $sb['id']));
+            foreach ($items as $i => $w) {
+                $t = isset($w['type']) ? $w['type'] : 'text';
+                $tname = isset($types[$t]) ? $types[$t][0] : ($t === 'wpclass' ? 'WP-виджет' : 'Виджет');
+                echo '<div style="border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px;background:var(--paper)">';
+                echo '<input type="hidden" name="w_type[]" value="' . esc_attr($t) . '"><input type="hidden" name="w_class[]" value="' . esc_attr(isset($w['class']) ? $w['class'] : '') . '">';
+                echo '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+                echo '<span class="badge b-teal">' . esc($tname) . '</span>';
+                echo '<input type="text" name="w_title[]" value="' . esc_attr(isset($w['title']) ? $w['title'] : '') . '" placeholder="Заголовок виджета" style="flex:1;min-width:180px;height:34px;font-size:13px">';
+                echo '<span style="display:flex;gap:5px">';
+                echo '<button class="icobtn" type="button" title="Выше" onclick="var r=this.closest(\'div[style*=border-radius]\');if(r.previousElementSibling)r.parentNode.insertBefore(r,r.previousElementSibling)">' . wt_icon('up', 13) . '</button>';
+                echo '<button class="icobtn" type="button" title="Ниже" onclick="var r=this.closest(\'div[style*=border-radius]\');if(r.nextElementSibling)r.parentNode.insertBefore(r.nextElementSibling,r)">' . wt_icon('down', 13) . '</button>';
+                echo '<button class="icobtn" type="button" title="Удалить" style="color:var(--red)" onclick="if(confirm(\'Удалить виджет?\')){var f=this.closest(\'form\');var row=this.closest(\'div[style*=border-radius]\');var types=f.querySelectorAll(\'input[name=&quot;w_type[]&quot;]\');var my=row.querySelector(\'input[name=&quot;w_type[]&quot;]\');var idx=Array.prototype.indexOf.call(types,my);var inp=document.createElement(\'input\');inp.type=\'hidden\';inp.name=\'delete_idx\';inp.value=idx;f.appendChild(inp);f.submit();}">' . wt_icon('trash', 13) . '</button>';
+                echo '</span></div></div>';
+                if ($t === 'text' || $t === 'html') {
+                    echo '<textarea name="w_text[]" rows="3" placeholder="' . ($t === 'html' ? 'HTML-код' : 'Текст виджета') . '" style="margin-top:9px;min-height:70px;font-size:13px">' . esc(isset($w['text']) ? $w['text'] : '') . '</textarea>';
+                } elseif ($t === 'recent') {
+                    echo '<div style="margin-top:9px;display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--mut)">Показывать записей: <input type="number" name="w_count[]" min="1" max="20" value="' . (int)(isset($w['count']) ? $w['count'] : 5) . '" style="width:70px;height:32px"></div>';
+                } elseif ($t === 'wpclass') {
+                    echo '<p style="margin:8px 0 0;color:var(--mut);font-size:12.5px">Виджет выводится кодом плагина <code>' . esc(isset($w['class']) ? $w['class'] : '') . '</code></p>';
+                }
+                echo '</div>';
+            }
+            echo '<p style="margin:12px 0 0"><button class="btn sm" type="submit">' . wt_icon('check', 14) . 'Сохранить виджеты</button></p></form>';
+        }
+        echo '</div>';
+    }
+    echo '<p style="color:var(--mut);font-size:12.5px;margin-top:4px">Области регистрирует тема (<code>register_sidebar</code>) — активная тема предоставляет: ' . esc(implode(', ', array_keys($sidebars))) . '. Виджеты видны на сайте: сайдбар — на странице записи, подвал — на всех страницах.</p>';
+    echo '</div></div>';
+    wt_shell_close(); exit;
+}
+
+/* ── Добавить тему: каталог WordPress.org ─────────────────────────── */
+function wt_screen_theme_new() {
+    $q = isset($_GET['s']) ? trim((string)$_GET['s']) : '';
+    wt_shell('theme-new', 'Добавить тему', 'Каталог тем WordPress.org — установка и активация так же, как в WordPress');
+
+    echo '<div class="card"><form method="get" action="' . esc_attr(wt_admin_url()) . '" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">';
+    echo '<input type="hidden" name="admin" value="1"><input type="hidden" name="page" value="theme-new">';
+    echo '<input type="text" name="s" value="' . esc_attr($q) . '" placeholder="Найти тему в каталоге WordPress.org…" style="flex:1;min-width:240px">';
+    echo '<button class="btn" type="submit">' . wt_icon('palette', 15) . 'Искать</button>';
+    if ($q !== '') echo '<a class="btn ghost" href="' . esc_attr(wt_admin_url('&page=theme-new')) . '">Сбросить</a>';
+    echo '</form></div>';
+
+    $api = wt_wp_api('themes', $q);
+    if ($api === null) {
+        echo '<div class="alert warn">' . wt_icon('alert', 17) . '<span>Каталог WordPress.org сейчас недоступен. Попробуйте позже или загрузите тему папкой в <code>wt-content/themes/</code>.</span></div>';
+        $api = array('themes' => array());
+    }
+    $list = isset($api['themes']) ? $api['themes'] : array();
+
+    if ($q === '' && count($list) === 0) {
+        echo '<div class="card empty">' . wt_icon('palette', 28) . '<br>Введите запрос — подгрузим список тем прямо из каталога WordPress.org.</div>';
+    } elseif (count($list) === 0) {
+        echo '<div class="card empty">' . wt_icon('palette', 28) . '<br>По запросу «' . esc($q) . '» ничего не найдено.</div>';
+    } else {
+        echo '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">';
+        foreach ($list as $th) {
+            $name = isset($th['name']) ? strip_tags((string)$th['name']) : 'Тема';
+            $author = isset($th['author']) ? strip_tags((string)$th['author']) : '';
+            $dl = isset($th['download_link']) ? (string)$th['download_link'] : '';
+            $shot = isset($th['screenshot_url']) ? (string)$th['screenshot_url'] : '';
+            $rating = isset($th['rating']) ? round((float)$th['rating'] / 20) : 0;
+            echo '<div class="card" style="margin:0;padding:0;overflow:hidden"><div style="height:150px;background:linear-gradient(140deg,#0d3039,#134450);overflow:hidden;display:grid;place-items:center;color:#5f97a1">';
+            echo $shot !== '' ? '<img src="' . esc_url($shot) . '" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy">' : wt_icon('palette', 30);
+            echo '</div><div style="padding:13px 15px"><b style="font-size:14px">' . esc($name) . '</b>';
+            echo '<div style="font-size:12px;color:var(--mut);margin:2px 0 8px">' . esc($author) . ' · <span style="color:var(--amber)">';
+            for ($i = 1; $i <= 5; $i++) echo $i <= $rating ? '★' : '☆';
+            echo '</span></div>';
+            if ($dl !== '') {
+                wt_form_open(array('action' => 'theme-wp-install', 'download_link' => $dl));
+                echo '<div style="display:flex;gap:10px;align-items:center">';
+                echo '<label style="display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--mut);cursor:pointer;margin:0"><input type="checkbox" name="activate" value="1" style="width:auto"> активировать</label>';
+                echo '<button class="btn sm" type="submit" style="margin-left:auto" onclick="this.disabled=true;this.textContent=\'Устанавливаем…\'">Установить</button></div></form>';
+            }
+            echo '</div></div>';
+        }
+        echo '</div>';
+        echo '<p style="color:var(--mut);font-size:12.5px;margin-top:12px">Темы распаковываются в <code>wt-content/themes/</code> и появляются в разделе «Внешний вид → Темы». Иерархия шаблонов и функции темы совместимы с ядром.</p>';
     }
     wt_shell_close(); exit;
 }

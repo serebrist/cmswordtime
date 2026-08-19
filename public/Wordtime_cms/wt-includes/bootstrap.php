@@ -139,7 +139,36 @@ function esc_url($s) {
     return esc($s);
 }
 function wt_kses($html) {
-    return strip_tags((string)$html, '<p><br><b><strong><i><em><u><a><ul><ol><li><h2><h3><blockquote><code><pre>');
+    /* Разрешённые теги и БЕЗОПАСНЫЕ атрибуты (src/href валидируются:
+       только http(s) и относительные пути — никаких javascript: и data:) */
+    $allowed = array('p' => array(), 'br' => array(), 'b' => array(), 'strong' => array(), 'i' => array(), 'em' => array(), 'u' => array(),
+        'a' => array('href', 'title'), 'ul' => array(), 'ol' => array(), 'li' => array(),
+        'h2' => array(), 'h3' => array(), 'h4' => array(), 'blockquote' => array(), 'code' => array(), 'pre' => array(),
+        'img' => array('src', 'alt', 'title', 'class'), 'figure' => array('class'), 'figcaption' => array());
+    $safeUrl = function ($v) {
+        $v = trim((string)$v);
+        $low = strtolower(preg_replace('/\s+/', '', $v));
+        if (strpos($low, 'javascript:') === 0 || strpos($low, 'data:') === 0 || strpos($low, 'vbscript:') === 0) return '';
+        return $v;
+    };
+    return preg_replace_callback('/<\/?([a-zA-Z][a-zA-Z0-9]*)((?:\s+[^<>]*)?)\s*\/?>/', function ($m) use ($allowed, $safeUrl) {
+        $tag = strtolower($m[1]);
+        if (!array_key_exists($tag, $allowed)) return '';
+        $close = strpos($m[0], '</') === 0 ? '</' . $tag . '>' : '';
+        if ($close !== '') return $close;
+        $attrs = '';
+        if (preg_match_all('/([a-zA-Z-]+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))/', $m[2], $am, PREG_SET_ORDER)) {
+            foreach ($am as $a) {
+                $name = strtolower($a[1]);
+                $val = isset($a[4]) && $a[4] !== '' ? $a[4] : (isset($a[3]) && $a[3] !== '' ? $a[3] : (isset($a[2]) ? $a[2] : ''));
+                if (!in_array($name, $allowed[$tag], true)) continue;
+                if ($name === 'src' || $name === 'href') { $val = $safeUrl($val); if ($val === '') continue; }
+                $attrs .= ' ' . $name . '="' . htmlspecialchars($val, ENT_QUOTES, 'UTF-8') . '"';
+            }
+        }
+        $self = ($tag === 'br' || $tag === 'img') ? ' /' : '';
+        return '<' . $tag . $attrs . $self . '>';
+    }, (string)$html);
 }
 function wt_nonce($action = 'default') {
     wt_session_start();
@@ -351,10 +380,11 @@ function wt_posts($args = array()) {
     $where = array('post_status = ?'); $params = array('published');
     if ($args['category'] !== '') { $where[] = 'category = ?'; $params[] = $args['category']; }
     if ($args['s'] !== '') { $where[] = '(post_title LIKE ? OR post_content LIKE ?)'; $params[] = '%' . $args['s'] . '%'; $params[] = '%' . $args['s'] . '%'; }
-    $sql = 'SELECT * FROM ' . wt_t('posts') . ' WHERE ' . implode(' AND ', $where) . ' ORDER BY post_date DESC LIMIT ' . (int)$args['limit'] . ' OFFSET ' . (int)$args['offset'];
+    $sql = 'SELECT * FROM ' . wt_t('posts') . ' WHERE ' . implode(' AND ', $where) . ' ORDER BY post_date DESC LIMIT ' . (int)($args['limit'] + 10) . ' OFFSET ' . (int)$args['offset'];
     $st = wt_db()->prepare($sql);
     $st->execute($params);
-    $rows = $st->fetchAll();
+    $rows = array_values(array_filter($st->fetchAll(), 'wt_post_visible')); /* приватные и отложенные скрыты */
+    $rows = array_slice($rows, 0, (int)$args['limit']);
     wt_cache_set($key, $rows, 600);
     return $rows;
 }
@@ -431,6 +461,8 @@ function wt_handle_upload($field) {
             imagedestroy($img);
         }
     }
+    /* метаданные файла (заголовок по имени) — как в медиатеке WordPress */
+    wt_media_meta($sub . '/' . $name, array('title' => preg_replace('/\.[a-z0-9]+$/i', '', $f['name']), 'alt' => '', 'caption' => ''));
     return array(true, array('url' => wt_asset('wt-content/uploads/' . $sub . '/' . $name), 'name' => $f['name'], 'size' => filesize($dir . '/' . $name), 'optimized' => $optimized));
 }
 
@@ -515,6 +547,7 @@ function wt_rest_handle($route) {
     if ($method === 'GET' && $resource === 'posts') $json(array('data' => wt_posts(array('limit' => isset($_GET['per_page']) ? (int)$_GET['per_page'] : 20))));
     if ($method === 'GET' && $resource === 'pages') $json(array('data' => wt_pages_list()));
     if ($method === 'GET' && $resource === 'info') $json(array('data' => array('site' => wt_option('site_title', 'Wordtime'), 'version' => WT_VERSION, 'tagline' => wt_option('tagline', ''))));
+    if ($method === 'GET' && $resource === 'media') $json(array('data' => wt_media_list()));
     if ($resource === 'comments' && $method === 'POST') {
         $key = isset($_SERVER['HTTP_X_WT_KEY']) ? $_SERVER['HTTP_X_WT_KEY'] : '';
         $auth = wt_api_key_ok($key);
@@ -661,3 +694,319 @@ function wt_comment_submit() {
     wt_log('Новый комментарий от ' . $author . ' к записи #' . $post_id . ' (' . $status . ')');
     return null;
 }
+
+/* ── Помощники хуков (нужны слою совместимости) ───────────────────── */
+function wt_has_hook($kind, $tag, $fn = false) {
+    $g = $kind === 'a' ? 'wt_actions' : 'wt_filters';
+    if (empty($GLOBALS[$g][$tag])) return false;
+    if ($fn === false) return true;
+    foreach ($GLOBALS[$g][$tag] as $fns) foreach ($fns as $f) if ($f === $fn) return true;
+    return false;
+}
+function wt_remove_hook($kind, $tag, $fn, $priority = 10) {
+    $g = $kind === 'a' ? 'wt_actions' : 'wt_filters';
+    if (empty($GLOBALS[$g][$tag][$priority])) return;
+    foreach ($GLOBALS[$g][$tag][$priority] as $i => $f) {
+        if ($f === $fn) { unset($GLOBALS[$g][$tag][$priority][$i]); return; }
+    }
+}
+function wt_footer() {
+    wt_do_action('wt_footer');
+    if (function_exists('wp_footer')) wp_footer();
+}
+
+/* ── Постоянные ссылки (как в WordPress) ──────────────────────────── */
+function wt_permalink_structure() { return (string)wt_option('permalink_structure', ''); }
+function wt_permalink($post) {
+    $s = wt_permalink_structure();
+    $slug = is_array($post) ? $post['slug'] : $post;
+    if ($s === '') return wt_url('post:' . $slug);
+    $date = is_array($post) && !empty($post['post_date']) ? strtotime($post['post_date']) : time();
+    $cat = is_array($post) && !empty($post['category']) ? wt_slugify($post['category']) : 'bez-rubriki';
+    $map = array('%postname%' => $slug, '%year%' => date('Y', $date), '%monthnum%' => date('m', $date),
+        '%day%' => date('d', $date), '%category%' => $cat, '%post_id%' => is_array($post) ? $post['id'] : '');
+    $path = strtr($s, $map);
+    return wt_base() . '/' . ltrim($path, '/');
+}
+function wt_permalink_page($pg) {
+    $s = wt_permalink_structure();
+    $slug = is_array($pg) ? $pg['slug'] : $pg;
+    if ($s === '') return wt_url('page:' . $slug);
+    return wt_base() . '/' . ltrim($slug, '/') . '/';
+}
+function wt_parse_pretty_url() {
+    /* Возвращает массив route-параметров, если REQUEST_URI — красивая ссылка */
+    $uri = isset($_SERVER['REQUEST_URI']) ? (string)$_SERVER['REQUEST_URI'] : '/';
+    $path = parse_url($uri, PHP_URL_PATH);
+    $base = wt_base();
+    if ($base !== '' && strpos($path, $base) === 0) $path = substr($path, strlen($base));
+    $path = trim((string)$path, '/');
+    if ($path === '' || strpos($path, 'wt-admin') === 0 || strpos($path, 'wt-data') === 0) return null;
+    $seg = array_values(array_filter(explode('/', $path), 'strlen'));
+    $n = count($seg);
+    if ($n === 0) return null;
+    $slug = function ($s) { return preg_replace('/[^a-z0-9-]/', '', mb_strtolower($s)); };
+    /* /страница/ имеет приоритет, затем структуры записей */
+    $page = wt_page_by_slug($slug($seg[$n - 1]));
+    if ($n === 1 && $page) return array('p' => 'page:' . $page['slug']);
+    if ($n === 1) { $post = wt_post_by_slug($slug($seg[0])); if ($post) return array('p' => 'post:' . $post['slug']); return null; }
+    if ($n === 2) { $post = wt_post_by_slug($slug($seg[1])); if ($post) return array('p' => 'post:' . $post['slug']); return null; }
+    if ($n === 3 && ctype_digit($seg[0]) && ctype_digit($seg[1])) {
+        $post = wt_post_by_slug($slug($seg[2]));
+        if ($post) return array('p' => 'post:' . $post['slug']);
+    }
+    return null;
+}
+
+/* ── Публикация: видимость, пароль, отложенные записи ─────────────── */
+function wt_post_visible($p) {
+    if (!is_array($p)) return false;
+    if ($p['post_status'] !== 'published') return false;
+    if (!empty($p['post_date']) && strtotime($p['post_date']) > time()) return false; /* отложенная */
+    $vis = isset($p['visibility']) ? $p['visibility'] : 'public';
+    return $vis !== 'private';
+}
+function wt_post_unlocked($p) {
+    if (empty($p['post_password'])) return true;
+    wt_session_start();
+    return in_array((int)$p['id'], (array)(isset($_SESSION['wt_pp']) ? $_SESSION['wt_pp'] : array()), true);
+}
+
+/* ── Медиафайлы: метаданные (заголовок, alt, подпись) как в WordPress ── */
+function wt_media_meta($file, $data = null) {
+    try {
+        if ($data === null) {
+            $st = wt_db()->prepare('SELECT * FROM ' . wt_t('media') . ' WHERE file = ? LIMIT 1');
+            $st->execute(array($file));
+            return $st->fetch();
+        }
+        $st = wt_db()->prepare('INSERT INTO ' . wt_t('media') . ' (file, title, alt, caption) VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE title = VALUES(title), alt = VALUES(alt), caption = VALUES(caption)');
+        $st->execute(array($file, $data['title'], $data['alt'], $data['caption']));
+        return true;
+    } catch (Exception $e) { return $data === null ? false : false; }
+}
+function wt_media_list() {
+    $out = array();
+    if (!is_dir(WT_UPLOADS)) return $out;
+    try {
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(WT_UPLOADS, FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $f) {
+            if (!$f->isFile()) continue;
+            $rel = str_replace('\\', '/', substr($f->getPathname(), strlen(WT_UPLOADS) + 1));
+            if (basename($rel) === 'index.html' || basename($rel) === '.htaccess') continue;
+            $meta = wt_media_meta($rel);
+            $out[] = array(
+                'file' => $rel,
+                'url' => wt_asset('wt-content/uploads/' . $rel),
+                'name' => basename($rel),
+                'size' => $f->getSize(),
+                'time' => $f->getMTime(),
+                'title' => $meta ? $meta['title'] : preg_replace('/\.[a-z0-9]+$/i', '', basename($rel)),
+                'alt' => $meta ? $meta['alt'] : '',
+                'caption' => $meta ? $meta['caption'] : '',
+                'image' => (bool)preg_match('/\.(jpe?g|png|gif|webp)$/i', $rel),
+            );
+        }
+    } catch (Exception $e) { /* каталог недоступен */ }
+    usort($out, function ($a, $b) { return $b['time'] - $a['time']; });
+    return $out;
+}
+
+/* ── Виджеты (как в WordPress: области + набор виджетов) ──────────── */
+function wt_widgets_all() {
+    $w = wt_option('wt_widgets', null);
+    if (!is_array($w)) {
+        $w = array(
+            'sidebar-1' => array(
+                array('type' => 'search', 'title' => 'Поиск', 'text' => '', 'count' => 5),
+                array('type' => 'recent', 'title' => 'Свежие записи', 'text' => '', 'count' => 5),
+                array('type' => 'categories', 'title' => 'Рубрики', 'text' => '', 'count' => 5),
+            ),
+            'footer-1' => array(array('type' => 'text', 'title' => 'О сайте', 'text' => "Сайт работает на Wordtime CMS.", 'count' => 5)),
+            'footer-2' => array(array('type' => 'menu', 'title' => 'Разделы', 'text' => '', 'count' => 5)),
+        );
+    }
+    return $w;
+}
+function wt_widgets_of($sidebar_id) {
+    $all = wt_widgets_all();
+    return isset($all[$sidebar_id]) ? $all[$sidebar_id] : array();
+}
+function wt_widgets_save($sidebar_id, $items) {
+    $all = wt_widgets_all();
+    $all[$sidebar_id] = $items;
+    wt_set_option('wt_widgets', $all);
+    wt_cache_flush();
+}
+function wt_widget_types() {
+    return array(
+        'text' => array('Текст', 'Произвольный текст с заголовком'),
+        'html' => array('Произвольный HTML', 'HTML-код (безопасный)'),
+        'search' => array('Поиск', 'Форма поиска по сайту'),
+        'recent' => array('Свежие записи', 'Список последних записей'),
+        'categories' => array('Рубрики', 'Список рубрик сайта'),
+        'menu' => array('Меню', 'Пункты меню сайта из консоли'),
+    );
+}
+function wt_render_sidebar($sidebar_id) {
+    $sidebars = function_exists('wp_get_sidebars') ? wp_get_sidebars() : array($sidebar_id => array('id' => $sidebar_id, 'before_widget' => '<div class="widget">', 'after_widget' => '</div>', 'before_title' => '<h3 class="widget-title">', 'after_title' => '</h3>'));
+    $sb = isset($sidebars[$sidebar_id]) ? $sidebars[$sidebar_id] : array('before_widget' => '<div class="widget %1$s">', 'after_widget' => '</div>', 'before_title' => '<h3 class="widget-title">', 'after_title' => '</h3>');
+    $items = wt_widgets_of($sidebar_id);
+    foreach ($items as $i => $w) {
+        $type = isset($w['type']) ? $w['type'] : 'text';
+        $title = isset($w['title']) ? (string)$w['title'] : '';
+        $bw = str_replace('%1$s', 'widget-' . preg_replace('/[^a-z0-9-]/', '', $type), $sb['before_widget']);
+        echo $bw;
+        if ($title !== '') echo $sb['before_title'] . esc($title) . $sb['after_title'];
+        switch ($type) {
+            case 'text':
+                echo '<div class="widget-text">' . wpautop(esc(isset($w['text']) ? $w['text'] : '')) . '</div>';
+                break;
+            case 'html':
+                echo wt_kses(isset($w['text']) ? $w['text'] : '');
+                break;
+            case 'search':
+                echo '<form class="widget-search" method="get" action="' . esc_attr(wt_base() . '/') . '"><input type="hidden" name="p" value=""><input type="search" name="s" placeholder="Найти…" value="' . esc_attr(isset($_GET['s']) ? (string)$_GET['s'] : '') . '"><button type="submit">→</button></form>';
+                break;
+            case 'recent':
+                $posts = wt_posts(array('limit' => max(1, (int)(isset($w['count']) ? $w['count'] : 5))));
+                echo '<ul class="widget-list">';
+                foreach ($posts as $p) echo '<li><a href="' . esc_url(wt_permalink($p)) . '">' . esc($p['post_title']) . '</a></li>';
+                echo '</ul>';
+                break;
+            case 'categories':
+                echo '<ul class="widget-list">';
+                foreach (wt_categories() as $c) echo '<li><a href="' . esc_url(wt_base() . '/?p=&category=' . rawurlencode($c)) . '">' . esc($c) . '</a></li>';
+                echo '</ul>';
+                break;
+            case 'menu':
+                $m = wt_option('site_menu', array());
+                echo '<ul class="widget-list">';
+                foreach ((array)$m as $it) if (is_array($it)) echo '<li><a href="' . wt_menu_href($it['url']) . '">' . esc($it['label']) . '</a></li>';
+                echo '</ul>';
+                break;
+            case 'wpclass':
+                /* виджет, зарегистрированный WP-плагином через register_widget() */
+                $cls = isset($w['class']) ? $w['class'] : '';
+                if ($cls !== '' && !empty($GLOBALS['wt_widget_classes'][$cls])) {
+                    $args = array('before_widget' => '', 'after_widget' => '', 'before_title' => $sb['before_title'], 'after_title' => $sb['after_title']);
+                    try { $GLOBALS['wt_widget_classes'][$cls]->widget($args, $w); } catch (Throwable $e) { wt_log('Виджет ' . $cls . ': ' . $e->getMessage()); }
+                }
+                break;
+        }
+        echo $sb['after_widget'];
+    }
+}
+
+/* ── Каталог WordPress.org: поиск плагинов и тем ──────────────────── */
+function wt_wp_api($kind, $search = '', $page = 1) {
+    /* Публичное API wordpress.org; кеш результатов — 1 час */
+    $cache = WT_DATA . '/wpcatalog-' . $kind . '-' . md5($search . '|' . $page) . '.json';
+    if (is_file($cache) && time() - filemtime($cache) < 3600) {
+        $d = json_decode((string)file_get_contents($cache), true);
+        if (is_array($d)) return $d;
+    }
+    $req = array('search' => $search, 'per_page' => 18, 'page' => max(1, (int)$page),
+        'fields' => array('download_link' => true, 'icons' => true, 'ratings' => true, 'downloaded' => true, 'active_installs' => true, 'screenshot_url' => true, 'num_ratings' => true));
+    $url = 'https://api.wordpress.org/' . ($kind === 'plugins' ? 'plugins' : 'themes') . '/info/1.2/?action=' . ($kind === 'plugins' ? 'query_plugins' : 'query_themes') . '&' . http_build_query(array('request' => $req));
+    $body = null;
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 12, CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_USERAGENT => 'Wordtime/' . WT_VERSION, CURLOPT_SSL_VERIFYPEER => true));
+        $body = curl_exec($ch);
+        curl_close($ch);
+    } else {
+        $ctx = stream_context_create(array('http' => array('timeout' => 12, 'user_agent' => 'Wordtime/' . WT_VERSION)));
+        $body = @file_get_contents($url, false, $ctx);
+    }
+    if (!$body) return null;
+    $d = json_decode($body, true);
+    if (!is_array($d)) return null;
+    @file_put_contents($cache, $body);
+    return $d;
+}
+function wt_install_wp_zip($download_url, $kind) {
+    /* Установка плагина/темы из ZIP WordPress.org — как в самой WordPress:
+       скачиваем архив, распаковываем в каталог, плагин можно активировать. */
+    if (!class_exists('ZipArchive')) return array(false, 'На хостинге нет расширения zip — включите его в панели (раздел PHP-расширения).');
+    $u = parse_url((string)$download_url);
+    $host = isset($u['host']) ? strtolower($u['host']) : '';
+    if ((!isset($u['scheme']) || $u['scheme'] !== 'https') || !preg_match('/(^|\.)wordpress\.org$/', $host)) {
+        return array(false, 'Установка разрешена только из каталога WordPress.org (downloads.wordpress.org).');
+    }
+    $tmpZip = WT_DATA . '/dl-' . md5($download_url) . '.zip';
+    $ok = false;
+    if (function_exists('curl_init')) {
+        $ch = curl_init($download_url);
+        $fp = fopen($tmpZip, 'w+');
+        curl_setopt_array($ch, array(CURLOPT_FILE => $fp, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 60, CURLOPT_USERAGENT => 'Wordtime/' . WT_VERSION));
+        $ok = curl_exec($ch) !== false;
+        curl_close($ch); fclose($fp);
+    } else {
+        $ctx = stream_context_create(array('http' => array('timeout' => 60, 'user_agent' => 'Wordtime/' . WT_VERSION)));
+        $data = @file_get_contents($download_url, false, $ctx);
+        $ok = $data !== false && @file_put_contents($tmpZip, $data) !== false;
+    }
+    if (!$ok || !is_file($tmpZip) || filesize($tmpZip) < 100) { @unlink($tmpZip); return array(false, 'Не удалось скачать архив с WordPress.org.'); }
+    $tmpDir = WT_DATA . '/unzip-' . md5($download_url . microtime());
+    @mkdir($tmpDir, 0755, true);
+    $zip = new ZipArchive();
+    if ($zip->open($tmpZip) !== true) { @unlink($tmpZip); return array(false, 'Архив повреждён.'); }
+    $zip->extractTo($tmpDir);
+    $zip->close();
+    @unlink($tmpZip);
+    /* корень пакета: сам каталог, либо единственная папка внутри */
+    $entries = array_values(array_diff(scandir($tmpDir), array('.', '..')));
+    $src = count($entries) === 1 && is_dir($tmpDir . '/' . $entries[0]) ? $tmpDir . '/' . $entries[0] : $tmpDir;
+    $name = basename($src) !== basename($tmpDir) ? basename($src) : preg_replace('/[^a-z0-9-]/i', '-', pathinfo(parse_url($download_url, PHP_URL_PATH), PATHINFO_FILENAME));
+    $destParent = WT_ROOT . '/wt-content/' . ($kind === 'plugins' ? 'plugins' : 'themes');
+    $dest = $destParent . '/' . $name;
+    if (is_dir($dest)) { wt_rrmdir($tmpDir); return array(false, '«' . esc($name) . '» уже установлен.'); }
+    if (!@rename($src, $dest)) {
+        /* rename не сработал между разделами — копируем рекурсивно */
+        wt_rcopy($src, $dest);
+    }
+    wt_rrmdir($tmpDir);
+    if ($kind === 'plugins') {
+        if (!empty($GLOBALS['wt_activate_hooks'])) foreach ($GLOBALS['wt_activate_hooks'] as $f => $fn) { try { $fn(); } catch (Throwable $e) {} }
+    }
+    wt_log(($kind === 'plugins' ? 'Плагин' : 'Тема') . ' «' . $name . '» установлен из каталога WordPress.org');
+    wt_cache_flush();
+    return array(true, $name);
+}
+function wt_rrmdir($dir) {
+    if (!is_dir($dir)) { @unlink($dir); return; }
+    foreach ((array)@scandir($dir) as $f) {
+        if ($f === '.' || $f === '..') continue;
+        $p = $dir . '/' . $f;
+        is_dir($p) ? wt_rrmdir($p) : @unlink($p);
+    }
+    @rmdir($dir);
+}
+function wt_rcopy($src, $dst) {
+    if (!is_dir($dst)) @mkdir($dst, 0755, true);
+    foreach ((array)@scandir($src) as $f) {
+        if ($f === '.' || $f === '..') continue;
+        $s = $src . '/' . $f; $d = $dst . '/' . $f;
+        is_dir($s) ? wt_rcopy($s, $d) : @copy($s, $d);
+    }
+}
+
+/* ── Обновление схемы (мягкое, при каждом запуске) ────────────────── */
+function wt_upgrade() {
+    try {
+        $db = wt_db();
+        /* таблица медиафайлов */
+        $db->exec('CREATE TABLE IF NOT EXISTS ' . wt_t('media') . ' (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, file VARCHAR(255) UNIQUE NOT NULL, title VARCHAR(255) DEFAULT "", alt VARCHAR(255) DEFAULT "", caption TEXT, created DATETIME DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        /* колонки публикаций: пароль и видимость */
+        $cols = $db->query('SHOW COLUMNS FROM ' . wt_t('posts'))->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('post_password', $cols, true)) $db->exec('ALTER TABLE ' . wt_t('posts') . ' ADD COLUMN post_password VARCHAR(120) DEFAULT ""');
+        if (!in_array('visibility', $cols, true)) $db->exec('ALTER TABLE ' . wt_t('posts') . ' ADD COLUMN visibility VARCHAR(20) DEFAULT "public"');
+    } catch (Exception $e) { /* установка ещё не завершена или нет прав */ }
+}
+
+/* ── Слой совместимости с WordPress API ───────────────────────────── */
+require_once __DIR__ . '/wp-compat.php';
+wt_upgrade();

@@ -46,7 +46,26 @@ if (count($segments) >= 2) {
     if ($segments[0] === 'category') { $_GET['p'] = 'category:' . $segments[1]; }
 }
 
+/* Постоянные ссылки по выбранной структуре: /запись/, /2026/02/запись/, /рубрика/запись/ */
+if (!isset($_GET['p'])) {
+    $pretty = wt_parse_pretty_url();
+    if ($pretty !== null) $_GET['p'] = $pretty['p'];
+}
+
 $p = isset($_GET['p']) ? (string)$_GET['p'] : '';
+
+/* ── Запись под паролем: проверка пароля ──────────────────────────── */
+if (strpos($p, 'post:') === 0 && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wt_post_pass'])) {
+    $pp = wt_post_by_slug(substr($p, 5));
+    wt_session_start();
+    if ($pp && $pp['post_password'] !== '' && hash_equals($pp['post_password'], (string)$_POST['wt_post_pass'])) {
+        $unlocked = (array)(isset($_SESSION['wt_pp']) ? $_SESSION['wt_pp'] : array());
+        $unlocked[] = (int)$pp['id'];
+        $_SESSION['wt_pp'] = array_values(array_unique($unlocked));
+    }
+    header('Location: ' . wt_permalink($pp ? $pp : substr($p, 5)));
+    exit;
+}
 
 /* ── Служебные маршруты ───────────────────────────────────────────── */
 if ($p === 'sitemap.xml' || $rel === 'sitemap.xml') { wt_sitemap(); exit; }
