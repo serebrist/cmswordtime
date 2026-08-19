@@ -84,6 +84,7 @@ function wt_install_smtp_test($host, $port, $user, $pass, $from, $to) {
 }
 
 $done = false;
+$manualCfg = ''; /* если конфиг не удалось записать — покажем его для ручного создания */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['test_mail']) && $step === 2) {
     $r = $v['smtp_host'] === '' ? 'Укажите SMTP-сервер' : wt_install_smtp_test($v['smtp_host'], $v['smtp_port'], $v['smtp_user'], $v['smtp_pass'], $v['smtp_from'] !== '' ? $v['smtp_from'] : $v['email'], $v['email']);
     if ($r === true) $okMsg = 'SMTP работает — тестовое письмо отправлено на ' . $v['email'];
@@ -153,7 +154,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 2 && !isset($_POST['test_
                 . "define('WT_SMTP_PASS', " . var_export($v['smtp_pass'], true) . ");\n"
                 . "define('WT_MAIL_FROM', " . var_export($v['smtp_from'], true) . ");\n";
             if (@file_put_contents(WT_ROOT . '/wt-config.php', $cfg) === false) {
-                $err = 'Не удалось записать wt-config.php — проверьте права на каталог сайта (chmod 755, владелец www-data).';
+                $err = 'Не удалось записать wt-config.php автоматически. Создайте файл wt-config.php в корне сайта вручную — содержимое ниже (скопировать можно одной кнопкой).';
+                $manualCfg = $cfg;
             } else {
                 @chmod(WT_ROOT . '/wt-config.php', 0600);
                 $done = true;
@@ -190,6 +192,7 @@ function wt_install_page($title, $body) {
     echo '.a-ok{background:rgba(22,163,74,.1);border-color:rgba(22,163,74,.4);color:#86efac}';
     echo '.steps{display:flex;gap:6px;margin-left:auto}.steps i{width:26px;height:5px;border-radius:99px;background:#174753;font-style:normal}.steps i.on{background:#f0b429}';
     echo 'code{background:#071b21;border:1px solid #174753;border-radius:6px;padding:1px 7px;font:12.5px ui-monospace,Menlo,monospace;color:#9fd8cd}';
+    echo '.cfg{margin:8px 0 0;background:#071b21;border:1px solid #174753;border-radius:12px;padding:14px 16px;color:#9fd8cd;font:12.5px/1.7 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:auto;max-height:300px}';
     echo '</style></head><body><div class="w">';
     echo '<div class="top"><span class="m"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10M7 20.5h10"/><path d="M8 3.5v3.2c0 2.3 1.6 3.5 3 4.6l1 .7 1-.7c1.4-1.1 3-2.3 3-4.6V3.5M8 20.5v-3.2c0-2.3 1.6-3.5 3-4.6l1-.7 1 .7c1.4 1.1 3 2.3 3 4.6v3.2"/></svg></span>';
     echo '<div><b>Wordtime</b><span>Установка CMS</span></div>';
@@ -231,6 +234,10 @@ $f = function ($k, $ph = '') use ($v) { return htmlspecialchars(isset($v[$k]) ? 
 $msg = '';
 if ($err !== '') $msg = '<div class="alert a-err">' . htmlspecialchars($err) . '</div>';
 if ($okMsg !== '') $msg = '<div class="alert a-ok">' . htmlspecialchars($okMsg) . '</div>';
+if ($manualCfg !== '') {
+    $msg .= '<label style="margin-top:18px">Содержимое wt-config.php — создайте файл в корне сайта и вставьте:</label>'
+        . '<pre class="cfg">' . htmlspecialchars($manualCfg) . '</pre>';
+}
 wt_install_page('База данных и сайт', '<h2>Подключение к базе и сайт</h2><p class="sub">Данные базы берите в панели хостинга (cPanel, ISPmanager) — раздел «MySQL».</p>' . $msg
     . '<form method="post" action="?step=2">'
     . '<div class="grid2"><div><label>Сервер БД</label><input name="dbhost" value="' . $f('dbhost') . '"></div>'

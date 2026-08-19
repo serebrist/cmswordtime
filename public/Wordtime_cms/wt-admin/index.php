@@ -45,7 +45,12 @@ $tab  = isset($_GET['tab']) ? preg_replace('/[^a-z0-9_-]/', '', (string)$_GET['t
 $flash = isset($_SESSION['wt_flash']) ? $_SESSION['wt_flash'] : null;
 unset($_SESSION['wt_flash']);
 
-if ($act === 'logout' && $user) { wt_log('Выход из консоли: ' . $user['user_login']); wt_logout(); header('Location: ' . wt_admin_url()); exit; }
+/* Выход — только по ссылке с nonce: иначе любой сторонний сайт мог бы
+   разлогинить администратора картинкой-ссылкой (CSRF).                */
+if ($act === 'logout' && $user) {
+    if (!wt_check_nonce('logout')) { header('Location: ' . wt_admin_url()); exit; }
+    wt_log('Выход из консоли: ' . $user['user_login']); wt_logout(); header('Location: ' . wt_admin_url()); exit;
+}
 
 if (isset($_GET['dl']) && $user && wt_check_nonce('dl')) {
     $f = basename((string)$_GET['dl']);
@@ -321,6 +326,13 @@ if (!$user) {
 
 /* ── Действия (только авторизованные, с nonce) ── */
 function wt_redirect_to($pg) { header('Location: ' . wt_admin_url('&page=' . $pg)); exit; }
+/* «Куда вернуться» из скрытого поля back: разрешаем страницу и вкладку,
+   всё остальное отсекаем (иначе после дампа с вкладки «Резервные копии»
+   пользователя кидало на «Общие»).                                    */
+function wt_back_or($fallback) {
+    $b = isset($_POST['back']) ? (string)$_POST['back'] : '';
+    return preg_match('/^[a-z-]+(&tab=[a-z-]+)?$/', $b) ? $b : $fallback;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $act !== '') {
     if (!wt_check_nonce('admin')) { $_SESSION['wt_flash'] = array('err', 'Проверка безопасности не пройдена — обновите страницу.'); wt_redirect_to($page); }
@@ -518,7 +530,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $act !== '') {
         case 'cache-clear': {
             wt_cache_flush(); wt_log('Кеш очищен из консоли');
             $_SESSION['wt_flash'] = array('ok', 'Кеш сайта очищен.');
-            wt_redirect_to(isset($_POST['back']) && preg_match('/^[a-z-]+$/', (string)$_POST['back']) ? (string)$_POST['back'] : 'settings&tab=cache');
+            wt_redirect_to(wt_back_or('settings&tab=cache'));
         }
         case 'perf-save': {
             wt_set_option('auto_purge', (string)$_POST['auto_purge']);
@@ -579,14 +591,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $act !== '') {
             list($okk, $res) = wt_backup_zip();
             wt_log($okk ? 'Создан полный бэкап ' . $res : 'Ошибка бэкапа: ' . $res);
             $_SESSION['wt_flash'] = $okk ? array('ok', 'Архив создан: ' . esc($res) . ' — скачайте его из списка.') : array('err', $res);
-            wt_redirect_to(isset($_POST['back']) && preg_match('/^[a-z-]+$/', (string)$_POST['back']) ? (string)$_POST['back'] : 'settings&tab=backups');
+            wt_redirect_to(wt_back_or('settings&tab=backups'));
         }
         case 'backup-sql': {
             $name = 'wordtime-db-' . date('Ymd-His') . '.sql';
             @file_put_contents(WT_DATA . '/backups/' . $name, wt_backup_db_sql());
             wt_log('Создан дамп базы ' . $name);
             $_SESSION['wt_flash'] = array('ok', 'Дамп базы создан: ' . esc($name));
-            wt_redirect_to(isset($_POST['back']) && preg_match('/^[a-z-]+$/', (string)$_POST['back']) ? (string)$_POST['back'] : 'settings&tab=backups');
+            wt_redirect_to(wt_back_or('settings&tab=backups'));
         }
         case 'backup-delete': {
             $f = basename((string)$_POST['file']);
@@ -600,9 +612,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $act !== '') {
             $sql = (string)file_get_contents($_FILES['sql']['tmp_name']);
             $n = 0;
             try {
-                foreach (preg_split('/;\s*\n/', $sql) as $q) {
-                    $q = trim($q);
-                    if ($q === '' || strpos($q, '--') === 0) continue;
+                /* wt_sql_statements() понимает кавычки и экранирование:
+                   «;» внутри текстов записей больше не рвёт INSERT пополам */
+                foreach (wt_sql_statements($sql) as $q) {
                     wt_db()->exec($q); $n++;
                 }
                 wt_cache_flush(); wt_log('Восстановление из SQL: ' . $n . ' запросов');
@@ -610,7 +622,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $act !== '') {
             } catch (Exception $e) {
                 $_SESSION['wt_flash'] = array('err', 'Ошибка восстановления: ' . esc($e->getMessage()));
             }
-            wt_redirect_to(isset($_POST['back']) && preg_match('/^[a-z-]+$/', (string)$_POST['back']) ? (string)$_POST['back'] : 'settings&tab=backups');
+            wt_redirect_to(wt_back_or('settings&tab=backups'));
         }
         case 'key-create': {
             $key = 'wt_' . bin2hex(random_bytes(18));
@@ -661,7 +673,7 @@ function wt_menu_active($target) {
 }
 
 function wt_shell($pageKey, $title, $sub) {
-    global $user, $flash, $page;
+    global $user, $flash, $page, $tab;
     wt_admin_css();
     echo '<title>' . esc($title) . ' · Wordtime CMS</title>';
     $pendingComments = (int)wt_db()->query('SELECT COUNT(*) FROM ' . wt_t('comments') . ' WHERE status = "pending"')->fetchColumn();
@@ -722,11 +734,11 @@ function wt_shell($pageKey, $title, $sub) {
         }
     }
     echo '</nav>';
-    echo '<div class="side-foot"><div class="chip"><span class="ava">' . esc(mb_strtoupper(mb_substr($user['user_login'], 0, 1))) . '</span><span class="who"><b>' . esc($user['user_login']) . '</b><span>' . esc($user['user_role']) . '</span></span><a class="out" href="' . esc_attr(wt_admin_url('&action=logout')) . '" title="Выйти">' . wt_icon('logout', 16) . '</a></div></div>';
+    echo '<div class="side-foot"><div class="chip"><span class="ava">' . esc(mb_strtoupper(mb_substr($user['user_login'], 0, 1))) . '</span><span class="who"><b>' . esc($user['user_login']) . '</b><span>' . esc($user['user_role']) . '</span></span><a class="out" href="' . esc_attr(wt_admin_url('&action=logout&wt_nonce=' . wt_nonce('logout'))) . '" title="Выйти">' . wt_icon('logout', 16) . '</a></div></div>';
     echo '</aside><div class="wrap">';
     echo '<div class="top"><button class="burger" onclick="document.getElementById(\'wtSide\').classList.toggle(\'open\')" aria-label="Меню">' . wt_icon('menu', 22) . '</button>';
     echo '<span class="crumb">Консоль / <b>' . esc($title) . '</b></span><span class="sp"></span>';
-    wt_form_open(array('action' => 'cache-clear', 'back' => $page !== '' ? $page : 'settings&tab=cache'));
+    wt_form_open(array('action' => 'cache-clear', 'back' => ($page === 'settings' && $tab !== '') ? 'settings&tab=' . $tab : ($page !== '' ? $page : 'settings&tab=cache')));
     echo '<button class="btn amber sm" type="submit" title="Очистить кеш сайта">' . wt_icon('zap', 14) . 'Очистить кеш</button></form>';
     echo '<a class="btn ghost sm" style="border-color:#1d4d59;color:#cfe4e6" href="' . esc_attr(wt_base() . '/') . '" target="_blank">' . wt_icon('ext', 14) . 'Сайт</a>';
     echo '</div><main class="main">';

@@ -729,10 +729,10 @@ function wt_backups_body() {
     usort($files, function ($a, $b) { return $b['time'] - $a['time']; });
     echo '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">';
     echo '<div class="card" style="margin:0"><h2>Полная копия сайта (.zip)</h2><p style="color:var(--mut);font-size:13px;margin:6px 0 14px">Все файлы: ядро, тема, плагины, медиафайлы + дамп базы внутри.</p>';
-    wt_form_open(array('action' => 'backup-zip', 'back' => 'settings'));
+    wt_form_open(array('action' => 'backup-zip', 'back' => 'settings&tab=backups'));
     echo '<button class="btn" type="submit">' . wt_icon('cloud', 15) . 'Создать полную копию</button></form></div>';
     echo '<div class="card" style="margin:0"><h2>Только база данных (.sql)</h2><p style="color:var(--mut);font-size:13px;margin:6px 0 14px">Быстрый дамп всех таблиц ' . esc(wt_prefix()) . '*.</p>';
-    wt_form_open(array('action' => 'backup-sql', 'back' => 'settings'));
+    wt_form_open(array('action' => 'backup-sql', 'back' => 'settings&tab=backups'));
     echo '<button class="btn dark" type="submit">' . wt_icon('db', 15) . 'Сделать дамп базы</button></form></div></div>';
     echo '<div class="card np" style="margin-top:18px"><div class="hd"><h2>Сохранённые копии</h2><span class="sp"></span><span style="color:var(--mut);font-size:12.5px">' . count($files) . ' шт.</span></div><table><tr><th>Файл</th><th>Размер</th><th>Дата</th><th></th></tr>';
     if (count($files) === 0) echo '<tr><td colspan="4" class="empty">' . wt_icon('cloud', 28) . '<br>Копий пока нет — создайте первую выше.</td></tr>';
@@ -744,7 +744,7 @@ function wt_backups_body() {
     }
     echo '</table></div>';
     echo '<div class="card"><h2>Восстановление из .sql</h2><p style="color:var(--mut);font-size:13px;margin:6px 0 12px">Текущая база будет заменена данными из файла. Сначала сделайте свежую копию.</p>';
-    wt_form_open(array('action' => 'backup-restore', 'enctype' => 1, 'back' => 'settings'));
+    wt_form_open(array('action' => 'backup-restore', 'enctype' => 1, 'back' => 'settings&tab=backups'));
     echo '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><input type="file" name="sql" accept=".sql" required style="flex:1;min-width:220px">';
     echo '<label style="display:flex;gap:8px;align-items:center;margin:0;font-weight:500;cursor:pointer"><input type="checkbox" name="confirm" value="1" style="width:auto"> понимаю, что база будет перезаписана</label>';
     echo '<button class="btn amber" type="submit">' . wt_icon('refresh', 15) . 'Восстановить</button></div></form></div>';
@@ -874,7 +874,7 @@ function wt_screen_settings() {
         echo '<label style="display:flex;gap:10px;align-items:center;cursor:pointer;margin:6px 0 0"><input type="checkbox" name="cache_enabled" value="1" style="width:auto" ' . ($on ? 'checked' : '') . ' onchange="this.form.submit()"> <b>' . ($on ? 'Кеш включён — страницы отдаются из wt-data/cache' : 'Кеш отключён') . '</b></label></div></form>';
         echo '<div class="card" style="background:linear-gradient(140deg,#071b21,#0d323c);border-color:#174753;color:#eaf4f4"><h2 style="color:#fff">Сейчас в кеше: ' . wt_fmt_kb(wt_cache_size()) . '</h2>';
         echo '<p style="color:#9fc0c5;font-size:13.5px;margin:6px 0 14px">Очистка нужна после правок дизайна, обновлений и восстановления базы. Подробные настройки — «Оптимизация → Скорость и кеш».</p>';
-        wt_form_open(array('action' => 'cache-clear', 'back' => 'settings'));
+        wt_form_open(array('action' => 'cache-clear', 'back' => 'settings&tab=cache'));
         echo '<button class="btn amber" type="submit">' . wt_icon('zap', 15) . 'Очистить кеш сайта</button></form></div>';
     } elseif ($tab === 'security') {
         echo '<div class="card" style="border-color:#bfe5cf"><h2>Двухфакторная аутентификация</h2>';
@@ -911,7 +911,7 @@ function wt_screen_settings() {
         echo '<div><label>Акцентный цвет (HEX)</label><input type="text" name="accent" value="' . esc_attr(wt_option('login_accent', '#14b8a6')) . '" placeholder="#14b8a6"></div></div>';
         echo '<label>Сообщение под логотипом</label><input type="text" name="message" value="' . esc_attr(wt_option('login_message', 'Вход защищён двухфакторной аутентификацией')) . '">';
         echo '<label>Подпись в нижней панели</label><input type="text" name="side" value="' . esc_attr(wt_option('login_side', 'Быстро. Безопасно. По-русски.')) . '">';
-        echo '<p style="margin:16px 0 0;display:flex;gap:10px"><button class="btn" type="submit">' . wt_icon('check', 15) . 'Сохранить оформление</button> <a class="btn ghost" href="' . esc_attr(wt_admin_url('&action=logout')) . '">Выйти и посмотреть</a></p></div></form>';
+        echo '<p style="margin:16px 0 0;display:flex;gap:10px"><button class="btn" type="submit">' . wt_icon('check', 15) . 'Сохранить оформление</button> <a class="btn ghost" href="' . esc_attr(wt_admin_url('&action=logout&wt_nonce=' . wt_nonce('logout'))) . '">Выйти и посмотреть</a></p></div></form>';
     }
     wt_shell_close(); exit;
 }

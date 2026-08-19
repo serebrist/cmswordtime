@@ -23,6 +23,16 @@ if (defined('WT_DEBUG') && WT_DEBUG) {
 foreach (array(WT_DATA, WT_CACHE_DIR, WT_DATA . '/backups', WT_UPLOADS) as $d) {
     if (!is_dir($d)) @mkdir($d, 0755, true);
 }
+/* Apache: wt-data закрыт от веба (там бэкапы с дампом БД и коды 2FA!),
+   в загрузках запрещён запуск PHP. nginx закрыт конфигом nginx-wordtime.conf. */
+function wt_protect_dir($dir, $rules) {
+    $f = $dir . '/.htaccess';
+    if (@file_get_contents($f) !== $rules) @file_put_contents($f, $rules);
+}
+wt_protect_dir(WT_DATA, "Require all denied\n");
+wt_protect_dir(WT_CACHE_DIR, "Require all denied\n");
+wt_protect_dir(WT_DATA . '/backups', "Require all denied\n");
+wt_protect_dir(WT_UPLOADS, "<FilesMatch \"\\.ph(p[3457]?|t|tml|ar)$\">\n    Require all denied\n</FilesMatch>\n");
 
 /* ── Базовый URL: корень домена ИЛИ подпапка ──────────────────────── */
 function wt_base() {
@@ -38,6 +48,16 @@ function wt_base() {
 function wt_url($route = '') { return wt_base() . '/?p=' . $route; }
 function wt_admin_url($extra = '') { return wt_base() . '/?admin=1' . $extra; }
 function wt_asset($rel) { return wt_base() . '/' . ltrim($rel, '/'); }
+/* Безопасный локальный URL для редиректов (защита от open redirect):
+   разрешены только пути, начинающиеся с '/' (кроме '//'), и только
+   внутри базового пути сайта. Всё остальное → null.                  */
+function wt_safe_local_url($url) {
+    $url = (string)$url;
+    if ($url === '' || $url[0] !== '/' || strpos($url, '//') === 0) return null;
+    $base = wt_base();
+    if ($base !== '' && $url !== $base && strpos($url, $base . '/') !== 0) return null;
+    return $url;
+}
 function wt_pretty($type, $slug) {
     if (defined('WT_PRETTY') && WT_PRETTY) return wt_base() . '/' . $type . '/' . $slug . '/';
     return wt_url($type . ':' . $slug);
@@ -84,8 +104,8 @@ function wt_do_action($tag) {
     foreach ($hooks as $fns) foreach ($fns as $fn) call_user_func_array($fn, $args);
 }
 
-/* ── Опции ────────────────────────────────────────────────────────── */
-function wt_option($name, $default = null) {
+/* ── Опции (общий кеш запроса: wt_set_option сразу виден wt_option) ── */
+function &wt_options_cache() {
     static $cache = null;
     if ($cache === null) {
         $cache = array();
@@ -95,12 +115,18 @@ function wt_option($name, $default = null) {
             }
         } catch (Exception $e) { /* установка не завершена */ }
     }
+    return $cache;
+}
+function wt_option($name, $default = null) {
+    $cache = &wt_options_cache();
     return array_key_exists($name, $cache) ? $cache[$name] : $default;
 }
 function wt_set_option($name, $value) {
     $st = wt_db()->prepare('INSERT INTO ' . wt_t('options') . ' (option_name, option_value) VALUES (?, ?)
         ON DUPLICATE KEY UPDATE option_value = VALUES(option_value)');
     $st->execute(array($name, json_encode($value, JSON_UNESCAPED_UNICODE)));
+    $cache = &wt_options_cache();
+    $cache[$name] = $value; /* без этого в рамках запроса читалось бы старое значение */
     wt_cache_flush();
 }
 
@@ -272,8 +298,9 @@ function wt_smtp_send($to, $subject, $body, $from) {
     return true;
 }
 
-/* ── Файловый кеш ─────────────────────────────────────────────────── */
+/* ── Файловый кеш (уважает настройку «Страничный кеш») ────────────── */
 function wt_cache_get($key) {
+    if (!wt_option('cache_enabled', true)) return null; /* кеш выключен — всегда «промах» */
     $f = WT_CACHE_DIR . '/' . md5($key) . '.cache';
     if (!is_file($f)) return null;
     $raw = @file_get_contents($f);
@@ -283,6 +310,7 @@ function wt_cache_get($key) {
     return $d['val'];
 }
 function wt_cache_set($key, $val, $ttl = 3600) {
+    if (!wt_option('cache_enabled', true)) return; /* кеш выключен — не пишем */
     @file_put_contents(WT_CACHE_DIR . '/' . md5($key) . '.cache', serialize(array('exp' => time() + $ttl, 'val' => $val)));
 }
 function wt_cache_flush() {
@@ -302,7 +330,12 @@ function wt_queue_run($limit = 20) {
     $done = 0;
     $rows = wt_db()->query('SELECT * FROM ' . wt_t('queue') . ' ORDER BY id LIMIT ' . (int)$limit)->fetchAll();
     foreach ($rows as $row) {
-        wt_do_action('wt_queue_' . $row['action'], json_decode($row['payload'], true));
+        try {
+            wt_do_action('wt_queue_' . $row['action'], json_decode($row['payload'], true));
+        } catch (Throwable $e) {
+            /* сбойный обработчик не должен валить cron и «вешать» остальные задачи */
+            wt_log('Очередь: задача ' . $row['action'] . ' #' . $row['id'] . ' завершена с ошибкой: ' . $e->getMessage());
+        }
         wt_db()->prepare('DELETE FROM ' . wt_t('queue') . ' WHERE id = ?')->execute(array($row['id']));
         $done++;
     }
@@ -506,6 +539,51 @@ function wt_rest_handle($route) {
         $json(array('data' => array('flushed' => true)));
     }
     $json(array('error' => 'Маршрут не найден: /wt/v1/' . $route), 404);
+}
+
+/* ── Разбор SQL-дампа: корректное разбиение на запросы ──────────────
+   Понимает одинарные/двойные кавычки, экранирование (\', '', \"),
+   обратные кавычки идентификаторов и комментарии (--, #, блоки).
+   Точка с запятой ВНУТРИ строковых значений запрос не разрывает.   */
+function wt_sql_statements($sql) {
+    $out = array(); $buf = '';
+    $len = strlen((string)$sql);
+    $inS = false; $inD = false; $inB = false; $inLine = false; $inBlock = false;
+    for ($i = 0; $i < $len; $i++) {
+        $ch = $sql[$i];
+        $nx = $i + 1 < $len ? $sql[$i + 1] : '';
+        if ($inLine) { if ($ch === "\n") $inLine = false; continue; }
+        if ($inBlock) { if ($ch === '*' && $nx === '/') { $i++; $inBlock = false; } continue; }
+        if ($inS) {
+            $buf .= $ch;
+            if ($ch === '\\' && $nx !== '') { $buf .= $nx; $i++; continue; }
+            if ($ch === "'") { if ($nx === "'") { $buf .= "'"; $i++; } else $inS = false; }
+            continue;
+        }
+        if ($inD) {
+            $buf .= $ch;
+            if ($ch === '\\' && $nx !== '') { $buf .= $nx; $i++; continue; }
+            if ($ch === '"') $inD = false;
+            continue;
+        }
+        if ($inB) { $buf .= $ch; if ($ch === '`') $inB = false; continue; }
+        if ($ch === '-' && $nx === '-' && ($i + 2 >= $len || $sql[$i + 2] === ' ' || $sql[$i + 2] === "\t" || $sql[$i + 2] === "\n" || $sql[$i + 2] === "\r")) { $inLine = true; continue; }
+        if ($ch === '#') { $inLine = true; continue; }
+        if ($ch === '/' && $nx === '*') { $inBlock = true; $i++; continue; }
+        if ($ch === "'") { $inS = true; $buf .= $ch; continue; }
+        if ($ch === '"') { $inD = true; $buf .= $ch; continue; }
+        if ($ch === '`') { $inB = true; $buf .= $ch; continue; }
+        if ($ch === ';') {
+            $stmt = trim($buf);
+            if ($stmt !== '') $out[] = $stmt;
+            $buf = '';
+            continue;
+        }
+        $buf .= $ch;
+    }
+    $stmt = trim($buf);
+    if ($stmt !== '') $out[] = $stmt;
+    return $out;
 }
 
 /* ── Резервные копии ──────────────────────────────────────────────── */

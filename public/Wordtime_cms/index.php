@@ -53,8 +53,9 @@ if ($p === 'sitemap.xml' || $rel === 'sitemap.xml') { wt_sitemap(); exit; }
 if ($p === 'robots.txt' || $rel === 'robots.txt') { wt_robots(); exit; }
 if ($p === 'comment-add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $err = wt_comment_submit();
-    $back = isset($_POST['redirect_to']) ? $_POST['redirect_to'] : wt_url('');
-    $back = strpos((string)$back, wt_base()) === 0 ? $back : wt_url('');
+    /* только внутренние пути (защита от open redirect через redirect_to) */
+    $back = wt_safe_local_url(isset($_POST['redirect_to']) ? $_POST['redirect_to'] : '');
+    if ($back === null) $back = wt_url('');
     header('Location: ' . $back . (strpos($back, '?') === false ? '?' : '&') . 'cm=' . ($err === null ? 'ok' : 'err'));
     exit;
 }

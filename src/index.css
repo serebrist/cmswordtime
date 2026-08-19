@@ -41,7 +41,7 @@
 
 html[data-theme="dark"] {
   --wt-canvas: #0a2229; --wt-card: #0f323c; --wt-line: #1c4a56; --wt-paper: #0d2b34;
-  --wt-ink-950: #eaf4f4; --wt-ink-900: #dceb ee;
+  --wt-ink-950: #eaf4f4;
   --wt-ink-900: #dcebee; --wt-ink-800: #c4dadd; --wt-ink-700: #7f9ba3;
   --wt-ink-600: #64858f; --wt-ink-500: #3d7c8c;
   --wt-teal-deep: #1aa795; --wt-teal-brand: #2dd4bf; --wt-teal-soft: #134450;
