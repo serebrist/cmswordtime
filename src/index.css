@@ -1,1 +1,106 @@
 @import "tailwindcss";
+
+@theme inline {
+  --color-canvas: var(--wt-canvas);
+  --color-card: var(--wt-card);
+  --color-line: var(--wt-line);
+  --color-paper: var(--wt-paper);
+  --color-ink-950: var(--wt-ink-950);
+  --color-ink-900: var(--wt-ink-900);
+  --color-ink-800: var(--wt-ink-800);
+  --color-ink-700: var(--wt-ink-700);
+  --color-ink-600: var(--wt-ink-600);
+  --color-ink-500: var(--wt-ink-500);
+  --color-teal-deep: var(--wt-teal-deep);
+  --color-teal-brand: var(--wt-teal-brand);
+  --color-teal-soft: var(--wt-teal-soft);
+  --color-amber-brand: var(--wt-amber-brand);
+  --color-amber-deep: var(--wt-amber-deep);
+  --color-ok: var(--wt-ok);
+  --color-warn: var(--wt-warn);
+  --color-danger: var(--wt-danger);
+  --color-mut: var(--wt-mut);
+  --color-deep: var(--wt-deep);
+  --color-deep-2: var(--wt-deep-2);
+  --color-deep-line: var(--wt-deep-line);
+  --color-deep-hi: var(--wt-deep-hi);
+  --font-display: "Unbounded", system-ui, sans-serif;
+  --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Светлая тема (по умолчанию) */
+:root {
+  --wt-canvas: #eef2f3; --wt-card: #ffffff; --wt-line: #dbe4e6; --wt-paper: #f6f9f9;
+  --wt-ink-950: #071b21; --wt-ink-900: #0c2e36; --wt-ink-800: #123c47; --wt-ink-700: #174753;
+  --wt-ink-600: #1f5663; --wt-ink-500: #2c6b7a;
+  --wt-teal-deep: #0e9384; --wt-teal-brand: #14b8a6; --wt-teal-soft: #d7f5f0;
+  --wt-amber-brand: #f0b429; --wt-amber-deep: #c98a12;
+  --wt-ok: #16a34a; --wt-warn: #b45309; --wt-danger: #dc2626; --wt-mut: #5c7379;
+  --wt-deep: #071b21; --wt-deep-2: #0c2e36; --wt-deep-line: #1c4a56; --wt-deep-hi: #174753;
+}
+
+html[data-theme="dark"] {
+  --wt-canvas: #0a2229; --wt-card: #0f323c; --wt-line: #1c4a56; --wt-paper: #0d2b34;
+  --wt-ink-950: #eaf4f4; --wt-ink-900: #dceb ee;
+  --wt-ink-900: #dcebee; --wt-ink-800: #c4dadd; --wt-ink-700: #7f9ba3;
+  --wt-ink-600: #64858f; --wt-ink-500: #3d7c8c;
+  --wt-teal-deep: #1aa795; --wt-teal-brand: #2dd4bf; --wt-teal-soft: #134450;
+  --wt-amber-brand: #f5c04a; --wt-amber-deep: #e2a51c;
+  --wt-ok: #3fbf6f; --wt-warn: #e0a63f; --wt-danger: #f0655f; --wt-mut: #7f9ba3;
+  --wt-deep: #06171d; --wt-deep-2: #0c2e36; --wt-deep-line: #1c4a56; --wt-deep-hi: #174753;
+}
+
+html, body { margin: 0; }
+body {
+  font-family: var(--font-body);
+  background: var(--wt-canvas);
+  color: var(--wt-ink-900);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+.card, .side, .top, .stat, .cardx { transition: background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease; }
+
+.font-display { font-family: var(--font-display); }
+
+/* чертёжная сетка и зерно — фирменный фон */
+.blueprint {
+  background-image:
+    linear-gradient(rgba(20, 184, 166, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 184, 166, 0.055) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+.grain::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #b9c9cc; border-radius: 8px; border: 2px solid var(--wt-canvas); }
+.dark-scroll::-webkit-scrollbar-thumb { background: #1c4a56; border-color: #071b21; }
+
+@keyframes wt-fade { from { opacity: 0; } to { opacity: 1; } }
+.anim-fade { animation: wt-fade 0.4s ease both; }
+@keyframes wt-fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.anim-fade-up { animation: wt-fade-up 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes wt-scale-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
+.anim-scale-in { animation: wt-scale-in 0.22s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes wt-slide-right { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+.anim-slide-right { animation: wt-slide-right 0.3s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes wt-sub { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+.anim-sub { animation: wt-sub 0.18s ease both; }
+@keyframes wt-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.anim-float { animation: wt-float 3s ease-in-out infinite; }
+@keyframes wt-blink { 50% { opacity: 0; } }
+@keyframes wt-pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes wt-flip { 0%, 42% { transform: rotate(0deg); } 55%, 92% { transform: rotate(180deg); } 100% { transform: rotate(360deg); } }
+.anim-hourflip { animation: wt-flip 4.2s cubic-bezier(0.7, 0, 0.3, 1) infinite; }
+@keyframes wt-spin { to { transform: rotate(360deg); } }
+.anim-spin { animation: wt-spin 0.9s linear infinite; }
+@keyframes wt-sweep { from { transform: translateX(-120%); } to { transform: translateX(360%); } }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+.shadow-panel { box-shadow: 0 1px 2px rgba(12, 46, 54, 0.06), 0 8px 24px -18px rgba(12, 46, 54, 0.35); }
+.shadow-pop { box-shadow: 0 24px 60px -24px rgba(7, 27, 33, 0.5); }
